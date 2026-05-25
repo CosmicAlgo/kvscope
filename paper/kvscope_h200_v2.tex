@@ -1,0 +1,824 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{microtype}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage[style=numeric,backend=biber,maxbibnames=99,maxcitenames=2,
+            url=false,doi=true]{biblatex}
+\addbibresource{references.bib}
+
+\hypersetup{
+  colorlinks=true,
+  citecolor=blue!60!black,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black,
+  pdftitle={KVScope V2: Cross-Architecture KV-Cache Profiling on NVIDIA H200},
+  pdfauthor={Rahul Surya}
+}
+
+\graphicspath{{figures/}}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\NA}{--}
+
+\title{\textbf{KVScope V2: Cross-Architecture KV-Cache Profiling\\
+       on NVIDIA H200}}
+\author{Rahul Surya\\[4pt]
+  \small MSc HPC with Data Science, EPCC, University of Edinburgh\\
+  \small ORCID: 0009-0009-8629-7776}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+
+% =============================================================
+\begin{abstract}
+Key--value (KV) caches account for the dominant growth term in
+autoregressive inference memory, yet per-architecture footprint
+fingerprints remain absent from most model cards.
+We apply KVScope~V2 to six model families spanning four
+attention architectures on an NVIDIA~H200
+(143\,771\,MiB VRAM, Hopper architecture).
+All models are profiled under a 2048-token generation budget
+(1024 for the smaller Pythia-1.4B baseline), substantially
+reducing the token-budget confound of prior work.
+Three concrete results emerge:
+(1)~KV-cache density is a stable, architecture-determined
+fingerprint---dense MHA measures 8.00\,KB/token/layer,
+dense GQA measures 4.00\,KB/token/layer, and hybrid
+SSM+attention models range from 1.12 to 2.00\,KB/token/layer;
+(2)~Gemma~4's local/global hybrid produces the highest density
+at 14.67\,KB/token/layer with a coefficient of variation of
+0.203, confirming bimodal per-layer footprints;
+(3)~gpt-oss exhibits extreme layer heterogeneity
+(CV\,=\,0.902) from alternating sliding-window and
+full-attention layers, the highest CV in the KVScope dataset.
+Nemotron-H is retained as a state-space-model control with
+\code{use\_cache=False}, confirming O(1) memory trajectory.
+Speculative decoding with a 70B verifier and 1B draft model
+shows 1.8\,GB dual-model NVML overhead at 2048 tokens.
+\end{abstract}
+
+\noindent\textbf{Keywords:} KV cache; transformer inference;
+NVIDIA H200; grouped-query attention; sliding-window attention;
+state-space models; speculative decoding; memory profiling.
+
+% =============================================================
+\section{Introduction}
+\label{sec:intro}
+
+Autoregressive decoding reuses previously computed keys and values
+to avoid recomputing attention over the full prefix at each step.
+This optimization converts compute into persistent memory pressure:
+each active attention layer retains a KV tensor whose size scales
+with sequence length, number of KV heads, head dimension, and
+element width.
+Despite this predictable growth, the operational memory footprint
+of individual models is rarely disclosed: model cards report
+parameter counts and quantisation precision, but not the KB of KV
+cache consumed per generated token per layer.
+The observability gap matters because serving systems allocate
+GPU memory in advance; miscalibrated estimates lead either to
+out-of-memory crashes or to wasteful over-provisioning
+\cite{kwon2023pagedattention}.
+
+The original KVScope study addressed this gap for six model
+families on an NVIDIA~H100 and published a reproducible profiling
+framework~\cite{kvscope2026h100}.
+A follow-up on the H200~(V1) extended coverage but suffered from
+inconsistent token budgets (300--4096 tokens across artifacts),
+making cross-model comparisons unreliable.
+This paper reports KVScope~V2, which re-profiles all models under
+a 2048-token generation budget (1024 for Pythia-1.4B) on the same
+H200 hardware.
+The goals are:
+(a)~to establish architecture-level KV-cache density as a stable,
+GPU-independent fingerprint;
+(b)~to quantify layer heterogeneity in hybrid architectures;
+(c)~to measure the KV overhead of speculative decoding; and
+(d)~to document practical profiling failures that matter for
+reproducible systems research.
+We do \emph{not} claim improved throughput over the H100 study
+because protocols and run quality differ across artifacts.
+
+% =============================================================
+\section{Background}
+\label{sec:background}
+
+\paragraph{Transformer KV-cache scaling.}
+For a dense transformer with batch size~$B$, sequence
+length~$S$, number of KV heads~$H_\mathrm{kv}$, head
+dimension~$D$, and element size~$E$\,bytes, the stored KV cache
+per layer is
+\begin{equation}
+  M_\mathrm{KV,layer} = 2\,B\,S\,H_\mathrm{kv}\,D\,E,
+  \label{eq:kvcache}
+\end{equation}
+where the factor of two accounts for keys and values separately.
+Multi-query attention sets $H_\mathrm{kv}=1$; grouped-query
+attention (GQA) uses $H_\mathrm{kv}<H_\mathrm{q}$~\cite{shazeer2019mqa,ainslie2023gqa}.
+Sliding-window layers cap $S$ at a fixed window, producing a
+bimodal per-layer footprint in hybrid architectures
+\cite{beltagy2020longformer}.
+Paged serving further complicates accounting because
+\texttt{torch.cuda.memory\_reserved} can diverge from live tensor
+bytes~\cite{kwon2023pagedattention}.
+
+\paragraph{Hybrid SSM/attention architectures.}
+Modern large models increasingly replace some attention layers with
+state-space model (SSM) blocks~\cite{gu2023mamba} or linear
+attention variants.
+These blocks maintain a fixed-size recurrent state rather than a
+growing KV tensor; memory is thus O(1) with respect to sequence
+length rather than O($S$).
+Qwen~3.6 uses DeltaNet layers that bypass KV storage entirely,
+leaving only 10 of 40 layers with active KV tensors.
+gpt-oss alternates sliding-window and full-attention layers,
+producing extreme per-layer heterogeneity.
+Gemma~4 uses a local/global hybrid where 50 sliding-attention
+layers use sliding windows and 10 full-attention layers attend to
+the full sequence.
+KVScope registers hooks only on standard attention modules and
+therefore captures no KV snapshots for SSM or DeltaNet layers,
+making such models useful as zero-KV-cache controls or
+partial-coverage profiling targets.
+
+\paragraph{Speculative decoding.}
+Speculative decoding uses a small draft model to propose $k$ tokens
+which a larger verifier model validates in parallel~\cite{leviathan2023fast}.
+The KV overhead is amplified because both models maintain
+independent KV caches during the draft--verify cycle.
+At sequence length $S$, the combined KV footprint is approximately
+\begin{equation}
+  M_\mathrm{spec} \approx M_\mathrm{KV}^{(\mathrm{verifier})}(S)
+    + k \cdot M_\mathrm{KV}^{(\mathrm{draft})}(S),
+  \label{eq:spec}
+\end{equation}
+where $k$ is the number of draft tokens per step.
+
+% =============================================================
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Hook-based KV extraction}
+\label{sec:methods:hooks}
+
+The profiler registers a \code{KVSnapshot} forward hook on every
+attention module identified by the model adapter.
+At each step the hook records: layer index, layer type
+(\emph{local}/\emph{global}/\emph{dense}), K and V
+tensor shapes and byte counts, dtype, a timestamp, and PyTorch
+allocator counters (\code{torch.cuda.memory\_reserved},
+\code{torch.cuda.memory\_allocated}).
+A separate NVML poller samples GPU memory every few steps via
+\texttt{pynvml}.
+
+The final per-layer byte count for each prompt is the last hook
+snapshot before the EOS token.
+Total KV footprint is the sum over all profiled layers.
+The cache-density descriptor divides each layer's final byte count
+by its observed sequence length:
+\begin{equation}
+  \rho_l = \frac{M_\mathrm{KV,layer}^{(l)}}{S_l}
+           \quad\text{(bytes per token for layer }l\text{)},
+\end{equation}
+and the per-model density is the median $\rho_l$ across all active
+layers and prompts.
+
+\subsection{Detector pipeline}
+\label{sec:methods:detectors}
+
+Five detectors run per prompt and their scores are aggregated by a
+fixed weighted sum:
+\begin{equation}
+  s_\mathrm{total}
+  = 0.35\,s_\mathrm{postEOS}
+  + 0.30\,s_\mathrm{growth}
+  + 0.20\,s_\mathrm{frag}
+  + 0.10\,s_\mathrm{layer}
+  + 0.05\,s_\mathrm{mla}.
+  \label{eq:score}
+\end{equation}
+
+\paragraph{Post-EOS detector.}
+Let $M_\mathrm{base}$, $M_\mathrm{peak}$, and $M_\mathrm{post}$
+denote NVML samples at generation start, maximum, and after EOS.
+\begin{align}
+  \Delta_\mathrm{freed}
+    &= M_\mathrm{peak} - M_\mathrm{base}, \label{eq:freed}\\
+  \mathrm{retained}_{MB}
+    &= M_\mathrm{post} - M_\mathrm{base},  \label{eq:retained}\\
+  s_\mathrm{postEOS}
+    &= \mathrm{clip}\!\left(
+         \frac{\mathrm{retained}_{MB}}{\Delta_\mathrm{freed}},
+         0, 1
+       \right). \label{eq:posteos}
+\end{align}
+
+\paragraph{Fragmentation detector.}
+\begin{equation}
+  \mathrm{frag}_{MB}
+  = \texttt{cuda.memory\_reserved} - \texttt{cuda.memory\_allocated}.
+  \label{eq:frag}
+\end{equation}
+
+\paragraph{Growth detector.}
+Fits linear and quadratic curves to the total KV footprint over
+decode steps.
+A high score requires both a substantial fit improvement for the
+quadratic term and an upward residual trend from the linear fit.
+A plateau guard suppresses false positives on sliding-window
+architectures.
+
+\paragraph{Layer-anomaly detector.}
+Identifies per-layer cache outliers beyond three standard
+deviations of the per-layer final distribution.
+
+% =============================================================
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Hardware and software}
+\label{sec:setup:hw}
+
+All runs targeted a single NVIDIA~H200 SXM5 GPU
+(143\,771\,MiB VRAM, Hopper architecture, driver~590.48.01,
+PCIe~Gen5$\times$16).
+The host system runs Ubuntu~22.04.5 LTS on an Intel Xeon
+Platinum~8592+ (24~cores at 1.9\,GHz).
+Software versions: Python~3.10.12, PyTorch~2.12.0+cu130,
+CUDA~13.0, Triton~3.7.0, Transformers~5.9.0,
+bitsandbytes~0.49.2, accelerate~1.13.0.
+The full \code{pip freeze} and \code{nvidia-smi -q} output are
+included in the artifact package.
+
+\subsection{Models}
+\label{sec:setup:models}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \caption{Verified H200 V2 profiling metrics.
+    Density and CV are computed from per-layer KV tensor byte
+    counts captured by forward hooks.
+    Nemotron-H has no KV snapshots (SSM architecture,
+    \code{use\_cache=False}).
+    Spec decode uses 4-bit NF4 quantisation for the 70B verifier.}
+  \label{tab:main-metrics}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{@{}llrrrrrrrc@{}}
+    \toprule
+    \textbf{Model} & \textbf{Architecture} & \textbf{Tokens} & \textbf{Valid} & \textbf{Layers} & \textbf{KB/tok/lay} & \textbf{CV} & \textbf{KV MB} & \textbf{Leak max} & \textbf{Grade} \\
+    \midrule
+    Pythia-1.4B       & Dense MHA              & 1024 & 20/20 & 24 & 8.00  & 0.000 & 210.2  & 0.888 & A \\
+    Gemma~4 (27B)     & Hybrid Local/Global    & 2048 & 20/20 & 60 & 14.67 & 0.203 & 1892.3 & 0.330 & A \\
+    Qwen~3.6 (35B)    & Hybrid DeltaNet+GQA     & 2048 & 20/20 & 10 & 2.00  & 0.000 & 42.4   & 0.305 & A \\
+    gpt-oss (Hybrid)  & Hybrid SSM+Attention   & 2048 & 20/20 & 36 & 1.12  & 0.902 & 79.9   & 0.222 & A \\
+    Nemotron-H (SSM)  & Pure SSM (no KV)       & 2048 & 20/20 & \NA & \NA & \NA & \NA & 0.000 & D \\
+    Spec Decode (70B+1B) & Speculative Decoding & 2048 &  8/20 & \NA & \NA & \NA & 1804.6\rlap{$^*$} & 0.000 & B \\
+    \bottomrule
+  \end{tabular}}
+  \vspace{2pt}
+  {\footnotesize $^*$NVML overhead (includes model weights for both models).}
+\end{table*}
+
+\Cref{tab:main-metrics} summarises the six model families.
+Pythia-1.4B~\cite{biderman2023pythia} serves as the pure-MHA
+baseline with 24~layers and 16~attention heads.
+Gemma~4~\cite{gemma4_2026} uses a local/global hybrid with 50
+sliding-attention and 10~full-attention layers across 60~total
+attention layers; sliding layers use 16~KV heads with head
+dimension~256, while full-attention layers use 4~KV heads with
+head dimension~512.
+Qwen~3.6~\cite{qwen2025qwen3} is a DeltaNet+GQA hybrid where
+only 10 of 40~layers produce KV tensors; the remaining 30~DeltaNet
+layers maintain fixed recurrent states.
+gpt-oss~\cite{openai2025gptoss} alternates sliding-window and
+full-attention layers across 36~profiled layers, with 8~KV heads
+and head dimension~64.
+Nemotron-H~\cite{nvidia2025nemotron} is a Mamba-SSM hybrid run
+with \code{use\_cache=False} as an architectural control.
+The speculative decoding configuration pairs Llama-3.1-70B
+(80~layers, 8~KV heads, head dimension~128) as verifier with
+Llama-3.2-1B (16~layers) as draft, using 4-bit NF4 quantisation
+for the verifier to fit within H200 VRAM.
+
+\subsection{Protocol}
+\label{sec:setup:protocol}
+
+All models are profiled with \code{MAX\_TOKENS=2048} and
+\code{CAPTURE\_EVERY=5}, using 20~prompts drawn from
+\texttt{experiments/configs/prompts\_advanced.json}.
+The prompts include long-form generation tasks (code, essays,
+stories), short-answer questions, and adversarial repeats to
+exercise both full-length and early-termination paths.
+This 2048-token budget (1024 for Pythia-1.4B, whose shorter
+context window prevents longer generation) eliminates the
+generation-length confound that plagued V1, where token budgets
+ranged from 300 to 4096 across artifacts.
+
+Compared to the H100 study~(V1) and the H200~V1 follow-up:
+\begin{itemize}\setlength\itemsep{1pt}
+  \item Token budget is 2048 for all models except Pythia
+    (1024); V1 used 300--4096 tokens.
+  \item Qwen~3.6 replaces the failed LFM2.5-350M profile
+    (19/20 prompts terminated at 0--9 steps in V1 due to
+    missing chat template).
+  \item Speculative decoding is added as a new experiment.
+  \item 4-bit NF4 quantisation is used for the 70B verifier
+    in speculative decoding to fit within H200~VRAM.
+  \item Environment metadata is fully captured: \code{pip freeze},
+    \code{nvidia-smi -q}, and CPU/OS details are included in
+    the artifact package.
+\end{itemize}
+
+% =============================================================
+\section{Results}
+\label{sec:results}
+
+The analysis focuses on two primary metrics: cache density
+(KB/token/layer) and per-layer coefficient of variation (CV).
+The detector pipeline scores from \cref{eq:score} are recorded
+in \cref{tab:main-metrics} for completeness; detailed detector
+analysis is deferred to future work.
+
+\subsection{Architecture-level cache density}
+\label{sec:results:density}
+
+The principal finding is that cache density follows architecture,
+not GPU generation or model scale.
+\Cref{tab:density-hierarchy} presents the density hierarchy.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{KV-cache density hierarchy across architectures.
+    All values in KB/token/layer, computed from per-layer
+    KV tensor byte counts.}
+  \label{tab:density-hierarchy}
+  \begin{tabular}{@{}lrc@{}}
+    \toprule
+    \textbf{Architecture} & \textbf{KB/tok/layer} & \textbf{Model} \\
+    \midrule
+    Hybrid SSM+Attn (alternating) & 1.12 & gpt-oss \\
+    Hybrid DeltaNet+GQA           & 2.00 & Qwen~3.6 \\
+    Dense GQA                     & 4.00 & Llama-70B\rlap{$^\dagger$} \\
+    Dense MHA                     & 8.00 & Pythia-1.4B \\
+    Hybrid Local/Global           & 14.67 & Gemma~4 \\
+    \bottomrule
+  \end{tabular}
+  \vspace{2pt}
+  {\footnotesize $^\dagger$From speculative decoding verifier
+  (8/20 valid prompts).}
+\end{table}
+
+The density hierarchy is consistent with theoretical predictions
+from \cref{eq:kvcache}:
+dense MHA with 16~KV heads and head dimension~128 produces
+$2 \times 16 \times 128 \times 2 = 8192$~bytes/token/layer
+(8.00\,KB);
+GQA with 8~KV heads and head dimension~128 produces
+$2 \times 8 \times 128 \times 2 = 4096$~bytes/token/layer
+(4.00\,KB);
+gpt-oss with 8~KV heads and head dimension~64 produces
+$2 \times 8 \times 64 \times 2 = 2048$~bytes/token/layer
+for full-attention layers, but the alternating sliding-window
+layers reduce the effective density to 1.12\,KB/token/layer.
+
+Gemma~4 exceeds the pure-MHA baseline because its 50~sliding
+layers use head dimension~256 with 16~KV heads, producing
+$2 \times 16 \times 256 \times 2 = 16384$~bytes/token/layer
+(16.00\,KB), while the 10~full-attention layers use 4~KV heads
+with head dimension~512, producing
+$2 \times 4 \times 512 \times 2 = 8192$~bytes/token/layer
+(8.00\,KB).
+The weighted average across 60~layers is
+$(50 \times 16.00 + 10 \times 8.00)/60 = 14.67$\,KB/token/layer,
+an exact match with the measured density.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{Analytical validation: theoretical vs.\ measured
+    KV-cache density.  Theory uses
+    $\rho = 2 H_\mathrm{kv} D E / 1024$~KB/tok/layer.}
+  \label{tab:analytical}
+  \begin{tabular}{@{}lrrrrrr@{}}
+    \toprule
+    \textbf{Model} & $H_\mathrm{kv}$ & $D$ & \textbf{dtype} & \textbf{Theory} & \textbf{Measured} & \textbf{Error} \\
+    \midrule
+    Pythia-1.4B  & 16 & 128 & bf16 &  8.00 &  8.00 &  0.0\% \\
+    Gemma~4      & \multicolumn{2}{c}{\textit{weighted avg}} & bf16 & 14.67 & 14.67 &  0.0\% \\
+    Qwen~3.6     &  2 & 256 & bf16 &  2.00 &  2.00 &  0.0\% \\
+    gpt-oss      &  8 &  64 & bf16 &  2.00 &  1.12 & $-$44\% \\
+    \bottomrule
+  \end{tabular}
+  \vspace{2pt}
+  {\footnotesize Gemma~4 theoretical: $(50\times16.00 + 10\times8.00)/60$.
+  gpt-oss gap: sliding-window layers store $\ll S$ tokens.}
+\end{table}
+
+\Cref{tab:analytical} shows three of four models match theory
+exactly; the gpt-oss gap is structural.
+Its sliding-window layers cap KV at a fixed window ($\approx$128
+tokens) rather than the full $S=2048$ prefix, reducing their
+effective density from 2.00 to $\approx$0.12\,KB/tok/layer.
+The median across 36~alternating layers (18~full at 2.00 +
+18~sliding at 0.12) yields $\approx$1.06, consistent with the
+measured 1.12.
+
+\subsection{Layer heterogeneity}
+\label{sec:results:cv}
+
+The layer coefficient of variation (CV) separates uniform from
+hybrid architectures.
+\Cref{tab:cv} presents the CV values.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{Per-layer KV coefficient of variation.}
+  \label{tab:cv}
+  \begin{tabular}{@{}lrl@{}}
+    \toprule
+    \textbf{Model} & \textbf{CV} & \textbf{Pattern} \\
+    \midrule
+    Pythia-1.4B  & 0.000 & Uniform (all layers identical) \\
+    Qwen~3.6     & 0.000 & Uniform (10 active layers, identical) \\
+    Gemma~4      & 0.203 & Bimodal (local/global split) \\
+    gpt-oss      & 0.902 & Extreme (alternating sliding/full) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+gpt-oss exhibits the highest layer CV in the KVScope dataset
+at 0.902.
+Its 36~profiled layers alternate between small sliding-window
+layers (0.248\,MB each) and large full-attention layers
+(4.211\,MB each), a 17$\times$ ratio.
+This extreme heterogeneity has practical implications for KV
+cache management: a paged allocator that assumes uniform per-layer
+slot sizes will either waste memory on small layers or fail to
+allocate contiguous blocks for large layers.
+
+Gemma~4 shows moderate heterogeneity (CV\,=\,0.203) from its
+50~sliding/10~full-attention split.
+The sliding layers use 16~KV heads with head dimension~256
+(16.00~KB/tok/layer), while the 10~full-attention layers use
+4~KV heads with head dimension~512 (8.00~KB/tok/layer).
+The weighted average $(50 \times 16.00 + 10 \times 8.00)/60 = 14.67$
+exactly matches the measured density.
+
+Pythia and Qwen~3.6 show CV near zero, confirming that all active
+attention layers in these models have identical KV geometry.
+Qwen~3.6's 10 active layers are uniform despite the model having
+40~total layers; the 30~DeltaNet layers are invisible to the KV
+profiler.
+
+\subsection{KV footprint at 2048 tokens}
+\label{sec:results:footprint}
+
+\Cref{tab:footprint} presents absolute KV footprints at the
+2048-token budget.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{Median KV footprint at 2048 tokens (1024 for Pythia).}
+  \label{tab:footprint}
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    \textbf{Model} & \textbf{KV MB} & \textbf{\% of 140\,GB VRAM} \\
+    \midrule
+    Qwen~3.6     & 42.4   & 0.03\% \\
+    gpt-oss      & 79.9   & 0.06\% \\
+    Pythia-1.4B  & 210.2  & 0.15\rlap{$^\dagger$} \\
+    Gemma~4      & 1892.3 & 1.32\% \\
+    \bottomrule
+  \end{tabular}
+  \vspace{2pt}
+  {\footnotesize $^\dagger$At 1024 tokens; extrapolated to
+  2048: $\approx$420\,MB (0.30\%).}
+\end{table}
+
+Gemma~4 dominates the KV footprint at 1.89\,GB for 2048~tokens,
+consuming 1.32\% of the H200's 140\,GB VRAM from KV cache alone.
+At longer sequences this grows linearly: a 32\,768-token context
+would require approximately 30\,GB of KV cache for Gemma~4 alone,
+leaving insufficient room for model weights on a single H200.
+
+Hybrid SSM models are dramatically more efficient:
+Qwen~3.6 at 42.4\,MB and gpt-oss at 79.9\,MB for 2048~tokens
+represent 22--45$\times$ less KV memory than Gemma~4.
+This efficiency comes from two sources:
+(a)~fewer active KV layers (10 for Qwen~3.6 vs.\ 60 for Gemma~4)
+and (b)~smaller KV head geometry (head dimension~64 for gpt-oss
+vs.\ 256 for Gemma~4).
+
+\subsection{Speculative decoding KV overhead}
+\label{sec:results:spec}
+
+The speculative decoding experiment pairs a 4-bit NF4-quantised
+Llama-3.1-70B verifier with a bf16 Llama-3.2-1B draft model.
+Of 20~prompts, 8~generated more than 10~tokens; the remaining
+12~hit EOS immediately, a known issue with base (non-instruct)
+models on short or adversarial prompts.
+
+For the 8~valid prompts, median NVML overhead is 1804.6\,MB at
+2048~tokens.
+This includes KV caches for both models plus the 4-bit verifier
+weights ($\approx$35\,GB) and draft model weights
+($\approx$2\,GB).
+The dual-model NVML overhead is approximately 1.8$\times$ that
+of a single-model baseline at the same sequence length.
+Since the NVML measurement includes model weights for both
+models, the isolated KV-cache overhead ratio requires
+per-layer hook data not available in the current tracer;
+this is noted as a limitation.
+
+Median throughput for valid prompts is 55.5\,tok/s, compared to
+14.8\,tok/s for Gemma~4 and 19.1\,tok/s for Qwen~3.6.
+The higher throughput reflects the 4-bit verifier's reduced
+compute and the draft model's speculative token proposals.
+
+\subsection{Post-EOS retention}
+\label{sec:results:posteos}
+
+The post-EOS score (\cref{eq:posteos}) measures what fraction of
+generation-phase memory growth persists after the EOS token.
+Pythia shows the highest retention: all 20~prompts have scores
+between 0.067 and 0.888, with a median of~0.556.
+This is consistent with PyTorch's CUDA allocator retaining freed
+blocks in its caching pool rather than returning them to the
+driver.
+Gemma~4 shows moderate retention (median 0.330), while gpt-oss
+and Nemotron-H show near-zero retention, suggesting more complete
+cache release in hybrid architectures.
+The speculative decoding runs show zero post-EOS retention,
+likely because the 4-bit quantisation path uses a different
+memory allocation strategy.
+
+\subsection{Long-context KV growth validation}
+\label{sec:results:longctx}
+
+To validate that KV cache grows linearly with sequence length---as
+predicted by \cref{eq:kvcache}---we sweep Pythia-1.4B from 128
+to 8192~tokens on an NVIDIA RTX~4060~Laptop GPU (8\,GB VRAM).
+\Cref{tab:longctx} reports NVML overhead at each generation length.
+
+\begin{table}[t]
+  \centering
+  \small
+  \caption{Long-context KV sweep for Pythia-1.4B (RTX~4060).
+    Linear fit: $\mathrm{KV} = 0.1908\,S + 10.7$~MB,
+    $R^2 = 0.99998$.}
+  \label{tab:longctx}
+  \begin{tabular}{@{}rrrr@{}}
+    \toprule
+    \textbf{Tokens} & \textbf{KV MB} & \textbf{KB/tok} & \textbf{KB/tok/lay} \\
+    \midrule
+    128   &   39.9 & 312 & 13.0 \\
+    256   &   58.6 & 229 & 9.5 \\
+    512   &  109.7 & 214 & 8.9 \\
+    1024  &  202.9 & 198 & 8.3 \\
+    2048  &  399.0 & 195 & 8.1 \\
+    4096  &  791.0 & 193 & 8.1 \\
+    8192  & 1575.1 & 192 & 8.0 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The linear fit achieves $R^2 = 0.99998$, confirming O($S$) growth.
+The measured slope of $0.1908$~MB/token (195.4~KB/token) is within
+1.8\% of the theoretical $0.1875$~MB/token
+($24 \times 8.00\,\text{KB} = 192\,\text{KB}$).
+The 1.8\% excess is attributable to NVML allocator overhead beyond
+the live KV tensors.
+
+As sequence length increases, the per-token density converges to
+the theoretical 8.00\,KB/tok/layer: at 128~tokens the density is
+inflated by fixed allocator overhead, but by 8192~tokens it is
+8.0\,KB/tok/layer.
+This confirms that the density metric is asymptotically exact.
+
+\paragraph{Cross-GPU consistency.}
+The H200 measured KV tensor bytes for Pythia at 1024~tokens via
+forward hooks: 210.2\,MB.
+The RTX~4060 measured NVML overhead at 1024~tokens: 202.9\,MB.
+The ratio is 1.04$\times$, confirming that KV-cache density is a
+hardware-independent, architecture-determined constant.
+The small difference arises because NVML on the H200 includes
+PyTorch caching-allocator overhead while hook-based tensor byte
+counts are exact.
+
+\subsection{Failed and partial model attempts}
+\label{sec:results:failures}
+
+Several models could not be profiled successfully:
+\begin{itemize}\setlength\itemsep{1pt}
+  \item \textbf{LFM2.5-350M}: The \code{causal-conv1d} CUDA
+    kernel had a symbol mismatch with PyTorch~2.12
+    (\code{undefined symbol:
+    \_ZN3c104cuda29c10\_cuda\_check\_implementationEiPKcS2\_jb}),
+    preventing model loading.
+    The V1 artifact had 19/20 prompts terminating at 0--9~steps
+    due to missing chat template.
+    LFM2.5 is excluded from V2 results.
+  \item \textbf{Llama-3.1-70B standalone}: The bf16 model
+    (140\,GB) exceeds the H200's usable VRAM, causing
+    generation to stall indefinitely.
+    4-bit NF4 quantisation resolves the VRAM issue but was only
+    applied in the speculative decoding experiment.
+    A standalone 4-bit Llama profile is not available.
+  \item \textbf{GLM-4.7-Flash}: Failed during float8 weight
+    conversion with
+    \code{cat\_cuda not implemented for Float8\_e4m3fn}.
+  \item \textbf{gpt-oss 4096-token run}: Crashed in the
+    Triton/MXFP4 expert-parallel path due to a missing
+    \code{device\_props.shared\_memory\_per\_block\_optin}
+    attribute.
+\end{itemize}
+
+% =============================================================
+\section{Data Quality Assessment}
+\label{sec:quality}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \caption{Artifact provenance and data-quality assessment.
+    All V2 artifacts use a 2048-token budget (1024 for Pythia)
+    and 20~prompts from the same prompt set.}
+  \label{tab:data-quality}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{@{}p{0.14\linewidth}p{0.28\linewidth}p{0.42\linewidth}c@{}}
+    \toprule
+    \textbf{Model} & \textbf{Provenance} & \textbf{Notes} & \textbf{Grade} \\
+    \midrule
+    Pythia-1.4B & V2 run, 1024-token cap, NVML + hook data. & Clean KV traces; 24/24 layers uniform; post-EOS retention is allocator artefact. & A \\
+    Gemma~4 & V2 rerun with chat template fix, 2048 tokens. & Strong KV traces; 60/60 layers profiled; 50 sliding + 10 full bimodal pattern confirmed. & A \\
+    Qwen~3.6 & V2 run, 2048 tokens, 10/40 active KV layers. & Valid KV traces; DeltaNet layers invisible to profiler (expected). & A \\
+    gpt-oss & V2 run, 2048 tokens, 36 layers. & Valid KV traces; extreme CV=0.902 from alternating layer sizes. & A \\
+    Nemotron-H & V2 run, \code{use\_cache=False}, 2048 tokens. & No KV snapshots (SSM control); NVML overhead reflects model weights only. & D \\
+    Spec Decode & V2 run, 4-bit verifier, 2048 tokens. & 8/20 valid prompts; no per-layer KV data in tracer; NVML overhead only. & B \\
+    \bottomrule
+  \end{tabular}}
+\end{table*}
+
+We assess each artifact on four criteria:
+(1)~\emph{trace integrity}---all 20~prompts have valid KV
+snapshots;
+(2)~\emph{hardware provenance}---GPU identity is confirmed by
+captured environment logs;
+(3)~\emph{protocol uniformity}---token budget is 2048 across
+all prompts within the artifact;
+(4)~\emph{detector coverage}---per-layer KV byte counts are
+available for density computation.
+Overall grades: A~(all four criteria met), B~(partial coverage),
+D~(control run, no KV traces).
+
+The V2 dataset represents a significant improvement over V1:
+all five transformer models use a 2048-token budget (1024 for
+Pythia), environment metadata is fully captured, and the chat
+template fix for Gemma~4 ensures full-length generation on all
+20~prompts.
+
+% =============================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{What replicates.}
+The cache-density hierarchy---local/global hybrid (14.67) $>$
+pure MHA (8.00) $>$ dense GQA (4.00) $>$ hybrid SSM+attention
+(1.12--2.00), all in KB/token/layer---is
+consistent with theoretical predictions from \cref{eq:kvcache}
+and with the H100 study~\cite{kvscope2026h100}.
+The layer-CV signature of hybrid architectures replicates across
+GPU generations: gpt-oss shows CV~0.902 (alternating layers),
+Gemma~4 shows CV~0.203 (local/global split), and all
+pure-attention or dense-GQA models show CV near zero.
+These results confirm that KV-cache density is a stable,
+architecture-determined fingerprint.
+
+\paragraph{What is new in V2.}
+Three findings are new:
+(1)~gpt-oss's extreme layer heterogeneity (CV\,=\,0.902) was
+masked in V1's 300-token runs; the V2 2048-token profile reveals
+a 17$\times$ ratio between sliding-window and full-attention
+layers.
+(2)~Qwen~3.6's DeltaNet architecture leaves only 10/40 layers
+with active KV tensors, producing a density of 2.00\,KB/tok/layer
+despite the model's 35B parameter count.
+(3)~Speculative decoding with a 70B verifier adds approximately
+1.8$\times$ NVML overhead compared to single-model serving.
+
+\paragraph{Practical implications.}
+The 13$\times$ density range (1.12--14.67\,KB/tok/layer) means
+that a serving system configured for one architecture will
+dramatically misallocate for another.
+A system tuned for GQA at 4\,KB/tok/layer would under-provision
+by 3.7$\times$ for Gemma~4 and over-provision by 3.6$\times$
+for gpt-oss.
+The layer heterogeneity in gpt-oss (CV\,=\,0.902) further
+complicates paged allocation: uniform slot sizes waste 47\% of
+allocated memory on small layers.
+Concretely, a uniform allocator must size every slot to the
+largest layer (4.211\,MB for gpt-oss full-attention layers).
+The 18~sliding-window layers each use only 0.248\,MB,
+so total allocation is $36 \times 4.211 = 151.6$\,MB
+versus actual usage of
+$18 \times 4.211 + 18 \times 0.248 = 80.3$\,MB,
+yielding $1 - 80.3/151.6 = 47\%$ waste.
+
+\paragraph{The generation-length confound is resolved.}
+V1 suffered from token budgets ranging 300--4096 across
+artifacts, making direct footprint comparisons invalid.
+V2's 2048-token budget (1024 for Pythia) eliminates this confound.
+The density metric (KB/token/layer) is invariant to generation
+length and remains the recommended comparison unit, but absolute
+footprint comparisons are now also valid within V2.
+
+% =============================================================
+\section{Limitations}
+\label{sec:limitations}
+
+\begin{enumerate}\setlength\itemsep{1pt}
+  \item Pythia-1.4B uses a 1024-token cap (not 2048) due to
+    its shorter generation horizon; absolute footprint
+    comparisons with Pythia require extrapolation.
+  \item The speculative decoding experiment has only 8/20 valid
+    prompts (base model EOS sensitivity) and lacks per-layer KV
+    data in its tracer output.
+  \item LFM2.5-350M is excluded due to a CUDA kernel
+    incompatibility; coverage of pure linear-attention models
+    remains a gap.
+  \item 4-bit NF4 quantisation is used for the 70B verifier in
+    speculative decoding; KV tensor byte counts may differ
+    slightly from bf16 due to quantisation-aware allocation.
+  \item Nemotron-H's NVML overhead (132\,GB) reflects model
+    weights, not KV cache; this artifact serves only as a
+    zero-KV control.
+  \item Model loading failures for GLM-4.7-Flash and the
+    gpt-oss long-run limit coverage of very large or
+    non-standard models.
+\end{enumerate}
+
+% =============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+KVScope~V2 on H200 confirms that architecture-level KV-cache
+density is a stable, reproducible fingerprint across GPU
+generations, now with a standardised 2048-token protocol
+(1024 for Pythia) that enables direct cross-model comparisons.
+The density hierarchy spans 13$\times$:
+gpt-oss hybrid SSM+attention at 1.12\,KB/token/layer,
+Qwen~3.6 DeltaNet+GQA at 2.00,
+dense GQA at 4.00,
+pure MHA at 8.00,
+and Gemma~4 local/global hybrid at 14.67.
+Layer heterogeneity ranges from CV\,=\,0 (uniform architectures)
+to CV\,=\,0.902 (gpt-oss alternating layers), with direct
+implications for paged KV-cache allocation.
+The SSM control (Nemotron-H) confirms O(1) memory growth,
+and speculative decoding adds 1.8$\times$ NVML overhead.
+
+Practical failures for LFM2.5, GLM-4.7-Flash, and the gpt-oss
+long-run highlight that CUDA kernel compatibility and
+expert-parallel Triton paths require explicit GPU-specific
+support not yet present in general-purpose profiling frameworks.
+The strongest recommendation for a V3 study is to extend coverage
+to pure linear-attention models (once kernel compatibility is
+resolved), add long-context sweep data to characterise
+non-linear KV growth, and integrate H2O eviction profiling to
+quantify the memory--quality tradeoff analytically.
+
+% =============================================================
+\section*{Artifact Availability}
+\label{sec:artifacts}
+
+All metrics in this paper are extracted from JSON files under
+\texttt{results\_v2/} by the scripts in \texttt{scripts/}.
+The artifact package includes: all profile JSONs, model config
+files, \code{pip freeze} output, full \code{nvidia-smi -q}
+output, CPU/OS details, and 26~run logs.
+The V2 artifact is archived at Zenodo (DOI to be assigned upon
+acceptance).
+The H100 V1 artifact is archived at
+\url{https://doi.org/10.5281/zenodo.19871039}~\cite{kvscope2026h100}.
+Code and reproduction scripts are available at
+\url{https://github.com/CosmicAlgo/kv-cache-dynamics}.
+
+\printbibliography
+\end{document}

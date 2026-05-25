@@ -1,0 +1,38 @@
+=== KVScope run snapshot (20260427T084414Z) ===
+host: ml-ai-ubuntu-gpu-h100x1-80gb-ams3
+user: root
+pwd : /root/kv-cache-dynamics
+
+--- git ---
+264d3593efee29b7ca3f8ae9cc40027f0ac7effb
+?? =0.27.0
+?? =0.43.0
+?? =4.47.0
+?? results/
+
+--- nvidia-smi ---
+Mon Apr 27 08:44:14 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 590.48.01              Driver Version: 590.48.01      CUDA Version: 13.1     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100 80GB HBM3          On  |   00000000:00:09.0 Off |                    0 |
+| N/A   45C    P0             72W /  700W |       0MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+
+--- python / torch / transformers ---
+python 3.10.12
+torch 2.11.0+cu130
+transformers 5.6.2

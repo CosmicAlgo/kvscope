@@ -1,0 +1,68 @@
+{
+  "models_compared": [
+    "mha_baseline",
+    "gemma4",
+    "glm51",
+    "gptoss"
+  ],
+  "kv_architecture": {
+    "mha_baseline": "Pure multi-head attention (Pythia-1.4B) \u2014 anchor / no GQA / no MLA",
+    "gemma4": "GQA + Shared KV + Local/Global interleave (K==V in global layers)",
+    "glm51": "MoE + DeepSeek Sparse Attention (DSA proxy via GLM-4.7-Flash)",
+    "deepseek": "MLA (Multi-Head Latent Attention) \u2014 compressed latent KV",
+    "gptoss": "GQA + sliding/full hybrid (alternating layers) + MoE FFN",
+    "nemotron": "Nemotron-H: Mamba SSM majority + sparse GQA attention"
+  },
+  "per_model": {
+    "mha_baseline": {
+      "avg_tokens_per_sec": 87.1,
+      "avg_kv_overhead_mb": 97.9,
+      "max_leak_score": 0.335,
+      "avg_density_kb_per_tok_per_layer": 8.0,
+      "avg_layer_cv": 0.0,
+      "avg_n_active_layers": 24.0,
+      "avg_peak_seq_len": 1155.7333,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 24.0
+    },
+    "gemma4": {
+      "avg_tokens_per_sec": 5055.4,
+      "avg_kv_overhead_mb": 8610.2,
+      "max_leak_score": 0.212,
+      "avg_density_kb_per_tok_per_layer": 14.6667,
+      "avg_layer_cv": 0.2033,
+      "avg_n_active_layers": 60.0,
+      "avg_peak_seq_len": 3687.8,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 60.0
+    },
+    "glm51": {
+      "avg_tokens_per_sec": 15.1,
+      "avg_kv_overhead_mb": 416.8,
+      "max_leak_score": 0.329,
+      "avg_density_kb_per_tok_per_layer": null,
+      "avg_layer_cv": null,
+      "avg_n_active_layers": null,
+      "avg_peak_seq_len": null,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 47.0
+    },
+    "gptoss": {
+      "avg_tokens_per_sec": 14.9,
+      "avg_kv_overhead_mb": 56.6,
+      "max_leak_score": 0.241,
+      "avg_density_kb_per_tok_per_layer": 2.0,
+      "avg_layer_cv": 0.9354,
+      "avg_n_active_layers": 36.0,
+      "avg_peak_seq_len": 4043.2,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 36.0,
+      "avg_full_layer_kb": 8086.4,
+      "avg_sliding_layer_kb": 254.0
+    }
+  }
+}

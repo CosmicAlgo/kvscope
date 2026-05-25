@@ -1,0 +1,103 @@
+{
+  "environment": {
+    "gpu": "NVIDIA H200",
+    "vram_mib": 143771,
+    "driver": "590.48.01",
+    "cuda": "13.1",
+    "architecture": "Hopper",
+    "cpu": "Intel Xeon Platinum 8592+",
+    "os": "Ubuntu 22.04.5 LTS",
+    "python": "3.10.12",
+    "torch": "2.12.0+cu130",
+    "triton": "3.7.0",
+    "transformers": "5.9.0",
+    "bitsandbytes": "0.49.2",
+    "accelerate": "1.13.0"
+  },
+  "models": [
+    {
+      "key": "mha_baseline",
+      "name": "Pythia-1.4B",
+      "arch": "Dense MHA",
+      "grade": "A",
+      "density": 8.0,
+      "cv": 0.0,
+      "n_layers": 24,
+      "total_kv_mb": 210.1875,
+      "valid": 20,
+      "max_tokens": 1024,
+      "source": "leak_detection",
+      "config_name": "pythia"
+    },
+    {
+      "key": "gemma4",
+      "name": "Gemma 4 (27B)",
+      "arch": "Hybrid Local/Global",
+      "grade": "A",
+      "density": 14.666669921875,
+      "cv": 0.2033,
+      "n_layers": 60,
+      "total_kv_mb": 1892.34375,
+      "valid": 20,
+      "max_tokens": 2048,
+      "source": "leak_detection",
+      "config_name": "gemma4_new"
+    },
+    {
+      "key": "qwen36",
+      "name": "Qwen 3.6 (35B)",
+      "arch": "Hybrid DeltaNet+GQA",
+      "grade": "A",
+      "density": 2.0,
+      "cv": 0.0,
+      "n_layers": 10,
+      "total_kv_mb": 42.421875,
+      "valid": 20,
+      "max_tokens": 2048,
+      "source": "leak_detection",
+      "config_name": "qwen36"
+    },
+    {
+      "key": "gptoss",
+      "name": "gpt-oss (Hybrid)",
+      "arch": "Hybrid SSM+Attention",
+      "grade": "A",
+      "density": 1.118125,
+      "cv": 0.9015735515183182,
+      "n_layers": 36,
+      "total_kv_mb": 79.93799999999999,
+      "valid": 20,
+      "max_tokens": 2048,
+      "source": "tracer",
+      "config_name": "gptoss"
+    },
+    {
+      "key": "nemotron",
+      "name": "Nemotron-H (SSM)",
+      "arch": "Pure SSM (no KV)",
+      "grade": "D",
+      "density": 0,
+      "cv": 0,
+      "n_layers": null,
+      "total_kv_mb": 132601.87,
+      "valid": 20,
+      "max_tokens": 2048,
+      "source": "nvml_only",
+      "config_name": "nemotron"
+    },
+    {
+      "key": "spec_decode",
+      "name": "Spec Decode (70B+1B)",
+      "arch": "Speculative Decoding",
+      "grade": "B",
+      "density": 0,
+      "cv": 0,
+      "n_layers": null,
+      "total_kv_mb": 1804.6,
+      "valid": 8,
+      "max_tokens": 2048,
+      "source": "nvml_only",
+      "config_name": "llama31-70b"
+    }
+  ]
+}

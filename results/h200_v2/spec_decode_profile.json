@@ -1,0 +1,337 @@
+{
+  "model_type": "spec_decode",
+  "verifier_path": "/root/models/llama31-70b",
+  "draft_path": "/root/models/llama32-1b",
+  "num_assistant_tokens": 5,
+  "max_new_tokens": 2048,
+  "n_prompts": 20,
+  "n_valid": 20,
+  "per_prompt": [
+    {
+      "prompt_idx": 0,
+      "prompt_preview": "Write a complete, well-commented Python implementation of a B-tree data structur",
+      "input_tokens": 112,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.55,
+      "tokens_per_sec": 1.8,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 46754.0,
+        "peak_mb": 47517.4,
+        "post_mb": 46867.3,
+        "overhead_mb": 763.4,
+        "unreleased_mb": 113.2
+      }
+    },
+    {
+      "prompt_idx": 1,
+      "prompt_preview": "Derive the Black-Scholes equation from first principles. Begin by stating all as",
+      "input_tokens": 91,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 86.42,
+      "tokens_per_sec": 23.7,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 46867.3,
+        "peak_mb": 48840.7,
+        "post_mb": 47062.3,
+        "overhead_mb": 1973.4,
+        "unreleased_mb": 195.0
+      }
+    },
+    {
+      "prompt_idx": 2,
+      "prompt_preview": "Design a distributed key-value store with eventual consistency from scratch. Wal",
+      "input_tokens": 111,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.21,
+      "tokens_per_sec": 4.8,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47062.3,
+        "peak_mb": 47712.4,
+        "post_mb": 47062.3,
+        "overhead_mb": 650.1,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 3,
+      "prompt_preview": "Write a long-form science fiction story (target 3500+ words) about a generation ",
+      "input_tokens": 116,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.2,
+      "tokens_per_sec": 5.0,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47062.3,
+        "peak_mb": 47718.7,
+        "post_mb": 47064.4,
+        "overhead_mb": 656.4,
+        "unreleased_mb": 2.1
+      }
+    },
+    {
+      "prompt_idx": 4,
+      "prompt_preview": "Implement a complete chess engine in Rust covering: bitboard representation, mag",
+      "input_tokens": 110,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.2,
+      "tokens_per_sec": 5.1,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47064.4,
+        "peak_mb": 47712.4,
+        "post_mb": 47064.4,
+        "overhead_mb": 648.0,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 5,
+      "prompt_preview": "Write a substantive philosophical dialogue (target 3000+ words) between three sp",
+      "input_tokens": 100,
+      "actual_new_tokens": 9,
+      "gen_time_s": 1.16,
+      "tokens_per_sec": 7.8,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47064.4,
+        "peak_mb": 47720.8,
+        "post_mb": 47064.4,
+        "overhead_mb": 656.4,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 6,
+      "prompt_preview": "Document the full architecture of a modern decoder-only transformer language mod",
+      "input_tokens": 145,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 45.11,
+      "tokens_per_sec": 45.4,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47064.4,
+        "peak_mb": 48895.2,
+        "post_mb": 47114.7,
+        "overhead_mb": 1830.8,
+        "unreleased_mb": 50.3
+      }
+    },
+    {
+      "prompt_idx": 7,
+      "prompt_preview": "Write a complete formal specification for a new programming language designed ar",
+      "input_tokens": 115,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.21,
+      "tokens_per_sec": 4.7,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47114.7,
+        "peak_mb": 47769.1,
+        "post_mb": 47114.7,
+        "overhead_mb": 654.3,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 8,
+      "prompt_preview": "Compose a 3500+ word essay tracing the evolution of consciousness from sensorimo",
+      "input_tokens": 123,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 38.1,
+      "tokens_per_sec": 53.8,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47114.7,
+        "peak_mb": 48920.4,
+        "post_mb": 47142.0,
+        "overhead_mb": 1805.6,
+        "unreleased_mb": 27.3
+      }
+    },
+    {
+      "prompt_idx": 9,
+      "prompt_preview": "Walk through the complete process of training a 7B parameter GPT-style language ",
+      "input_tokens": 191,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 36.5,
+      "tokens_per_sec": 56.1,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47142.0,
+        "peak_mb": 48939.3,
+        "post_mb": 47158.8,
+        "overhead_mb": 1797.3,
+        "unreleased_mb": 16.8
+      }
+    },
+    {
+      "prompt_idx": 10,
+      "prompt_preview": "Solve and explain in pedagogical detail: minimize the variance of a 50-asset equ",
+      "input_tokens": 163,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.22,
+      "tokens_per_sec": 4.5,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47158.8,
+        "peak_mb": 47827.8,
+        "post_mb": 47158.8,
+        "overhead_mb": 669.0,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 11,
+      "prompt_preview": "Write a comprehensive practical guide to debugging memory-related defects in mod",
+      "input_tokens": 181,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.21,
+      "tokens_per_sec": 4.8,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47158.8,
+        "peak_mb": 47840.4,
+        "post_mb": 47158.8,
+        "overhead_mb": 681.6,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 12,
+      "prompt_preview": "Explain the Curry\u2013Howard correspondence rigorously and pedagogically. Begin with",
+      "input_tokens": 158,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.21,
+      "tokens_per_sec": 4.7,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47158.8,
+        "peak_mb": 47829.9,
+        "post_mb": 47158.8,
+        "overhead_mb": 671.1,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 13,
+      "prompt_preview": "Design a complete, production-ready rate-limiting subsystem for a SaaS API servi",
+      "input_tokens": 158,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.15,
+      "tokens_per_sec": 6.7,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47158.8,
+        "peak_mb": 47829.9,
+        "post_mb": 47158.8,
+        "overhead_mb": 671.1,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 14,
+      "prompt_preview": "Provide a complete tutorial-style derivation of the von Neumann\u2013Morgenstern expe",
+      "input_tokens": 153,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.2,
+      "tokens_per_sec": 4.9,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47158.8,
+        "peak_mb": 47829.9,
+        "post_mb": 47160.9,
+        "overhead_mb": 671.1,
+        "unreleased_mb": 2.1
+      }
+    },
+    {
+      "prompt_idx": 15,
+      "prompt_preview": "Reply with a single short sentence: what year did the Berlin Wall fall?",
+      "input_tokens": 16,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 37.25,
+      "tokens_per_sec": 55.0,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47160.9,
+        "peak_mb": 48970.7,
+        "post_mb": 47192.3,
+        "overhead_mb": 1809.8,
+        "unreleased_mb": 31.5
+      }
+    },
+    {
+      "prompt_idx": 16,
+      "prompt_preview": "Continue this story for as long as you can without stopping or summarizing. Each",
+      "input_tokens": 88,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 29.81,
+      "tokens_per_sec": 68.7,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47192.3,
+        "peak_mb": 48972.8,
+        "post_mb": 47192.3,
+        "overhead_mb": 1780.5,
+        "unreleased_mb": 0.0
+      }
+    },
+    {
+      "prompt_idx": 17,
+      "prompt_preview": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the ",
+      "input_tokens": 103,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 34.79,
+      "tokens_per_sec": 58.9,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47192.3,
+        "peak_mb": 48995.9,
+        "post_mb": 47217.5,
+        "overhead_mb": 1803.6,
+        "unreleased_mb": 25.2
+      }
+    },
+    {
+      "prompt_idx": 18,
+      "prompt_preview": "Write a polyglot technical reference that switches languages every paragraph: pa",
+      "input_tokens": 128,
+      "actual_new_tokens": 1,
+      "gen_time_s": 0.21,
+      "tokens_per_sec": 4.7,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47217.5,
+        "peak_mb": 47880.2,
+        "post_mb": 47219.6,
+        "overhead_mb": 662.7,
+        "unreleased_mb": 2.1
+      }
+    },
+    {
+      "prompt_idx": 19,
+      "prompt_preview": "yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes ",
+      "input_tokens": 103,
+      "actual_new_tokens": 2048,
+      "gen_time_s": 36.14,
+      "tokens_per_sec": 56.7,
+      "num_assistant_tokens": 5,
+      "memory": {
+        "baseline_mb": 47219.6,
+        "peak_mb": 49023.2,
+        "post_mb": 47242.7,
+        "overhead_mb": 1803.6,
+        "unreleased_mb": 23.1
+      }
+    }
+  ],
+  "aggregate": {
+    "median_tokens_per_sec": 5.9,
+    "avg_tokens_per_sec": 23.9,
+    "median_overhead_mb": 676.4,
+    "max_overhead_mb": 1973.4
+  }
+}

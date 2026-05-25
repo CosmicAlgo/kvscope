@@ -1,0 +1,83 @@
+{
+  "models_compared": [
+    "mha_baseline",
+    "gemma4",
+    "gptoss",
+    "nemotron",
+    "lfm25"
+  ],
+  "kv_architecture": {
+    "mha_baseline": "Pure multi-head attention (Pythia-1.4B) \u2014 anchor / no GQA / no MLA",
+    "gemma4": "GQA + Shared KV + Local/Global interleave (K==V in global layers)",
+    "glm51": "MoE + DeepSeek Sparse Attention (DSA proxy via GLM-4.7-Flash)",
+    "deepseek": "MLA (Multi-Head Latent Attention) \u2014 compressed latent KV",
+    "gptoss": "GQA + sliding/full hybrid (alternating layers) + MoE FFN",
+    "nemotron": "Nemotron-H: Mamba SSM majority + sparse GQA attention",
+    "lfm25": "LFM2.5: LIV convolution + GQA hybrid (10 LIV blocks + 6 GQA blocks)",
+    "deepseek_v4": "DeepSeek V4: CSA/HCA hybrid (4x/128x compression + 2% KV cache)"
+  },
+  "per_model": {
+    "mha_baseline": {
+      "avg_tokens_per_sec": 85.6,
+      "avg_kv_overhead_mb": 108.0,
+      "max_leak_score": 0.326,
+      "avg_density_kb_per_tok_per_layer": 8.0,
+      "avg_layer_cv": 0.0,
+      "avg_n_active_layers": 24.0,
+      "avg_peak_seq_len": 1146.95,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 24.0
+    },
+    "gemma4": {
+      "avg_tokens_per_sec": 10.2,
+      "avg_kv_overhead_mb": 595.4,
+      "max_leak_score": 0.34,
+      "avg_density_kb_per_tok_per_layer": 14.6667,
+      "avg_layer_cv": 0.2033,
+      "avg_n_active_layers": 60.0,
+      "avg_peak_seq_len": 232.3,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 60.0
+    },
+    "gptoss": {
+      "avg_tokens_per_sec": 13.7,
+      "avg_kv_overhead_mb": 52.0,
+      "max_leak_score": 0.304,
+      "avg_density_kb_per_tok_per_layer": 2.0,
+      "avg_layer_cv": 0.8828,
+      "avg_n_active_layers": 36.0,
+      "avg_peak_seq_len": 2106.0,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 36.0,
+      "avg_full_layer_kb": 4212.0,
+      "avg_sliding_layer_kb": 254.0
+    },
+    "nemotron": {
+      "avg_tokens_per_sec": 23.3,
+      "avg_kv_overhead_mb": 132608.7,
+      "max_leak_score": 0.0,
+      "avg_density_kb_per_tok_per_layer": null,
+      "avg_layer_cv": null,
+      "avg_n_active_layers": null,
+      "avg_peak_seq_len": null,
+      "avg_head_utilization_ratio": null,
+      "avg_dead_heads": null,
+      "avg_n_layers_with_head_data": null
+    },
+    "lfm25": {
+      "avg_tokens_per_sec": 16.3,
+      "avg_kv_overhead_mb": 16.6,
+      "max_leak_score": 0.363,
+      "avg_density_kb_per_tok_per_layer": 2.0,
+      "avg_layer_cv": 0.0,
+      "avg_n_active_layers": 6.0,
+      "avg_peak_seq_len": 159.2,
+      "avg_head_utilization_ratio": 1.0,
+      "avg_dead_heads": 0.0,
+      "avg_n_layers_with_head_data": 6.0
+    }
+  }
+}

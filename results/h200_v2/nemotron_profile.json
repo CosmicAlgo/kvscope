@@ -1,0 +1,490 @@
+{
+  "model_type": "nemotron",
+  "model_path": "/root/models/nemotron",
+  "per_prompt": [
+    {
+      "prompt_idx": 0,
+      "input_tokens": 130,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 160.6,
+      "tokens_per_sec": 12.8,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 3165
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17500.86,
+        "peak_mb": 150474.98,
+        "post_eos_mb": 17821.73,
+        "overhead_mb": 132974.12
+      }
+    },
+    {
+      "prompt_idx": 1,
+      "input_tokens": 88,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 85.49,
+      "tokens_per_sec": 24.0,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1685
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17821.73,
+        "peak_mb": 150724.54,
+        "post_eos_mb": 17823.83,
+        "overhead_mb": 132902.81
+      }
+    },
+    {
+      "prompt_idx": 2,
+      "input_tokens": 114,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 84.62,
+      "tokens_per_sec": 24.2,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1669
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17823.83,
+        "peak_mb": 150426.75,
+        "post_eos_mb": 17823.83,
+        "overhead_mb": 132602.92
+      }
+    },
+    {
+      "prompt_idx": 3,
+      "input_tokens": 124,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 85.71,
+      "tokens_per_sec": 23.9,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1690
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17823.83,
+        "peak_mb": 150242.2,
+        "post_eos_mb": 17823.83,
+        "overhead_mb": 132418.37
+      }
+    },
+    {
+      "prompt_idx": 4,
+      "input_tokens": 116,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 85.68,
+      "tokens_per_sec": 23.9,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1689
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17823.83,
+        "peak_mb": 150365.93,
+        "post_eos_mb": 17823.83,
+        "overhead_mb": 132542.1
+      }
+    },
+    {
+      "prompt_idx": 5,
+      "input_tokens": 101,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 84.26,
+      "tokens_per_sec": 24.3,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1662
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17823.83,
+        "peak_mb": 150586.13,
+        "post_eos_mb": 17823.83,
+        "overhead_mb": 132762.3
+      }
+    },
+    {
+      "prompt_idx": 6,
+      "input_tokens": 163,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 86.99,
+      "tokens_per_sec": 23.5,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1717
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17823.83,
+        "peak_mb": 150273.65,
+        "post_eos_mb": 17828.02,
+        "overhead_mb": 132449.83
+      }
+    },
+    {
+      "prompt_idx": 7,
+      "input_tokens": 116,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 84.79,
+      "tokens_per_sec": 24.2,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1673
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17828.02,
+        "peak_mb": 150370.12,
+        "post_eos_mb": 17828.02,
+        "overhead_mb": 132542.1
+      }
+    },
+    {
+      "prompt_idx": 8,
+      "input_tokens": 127,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 85.83,
+      "tokens_per_sec": 23.9,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1693
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17828.02,
+        "peak_mb": 150560.96,
+        "post_eos_mb": 17828.02,
+        "overhead_mb": 132732.94
+      }
+    },
+    {
+      "prompt_idx": 9,
+      "input_tokens": 199,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 88.23,
+      "tokens_per_sec": 23.2,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1739
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17828.02,
+        "peak_mb": 150187.67,
+        "post_eos_mb": 17832.21,
+        "overhead_mb": 132359.65
+      }
+    },
+    {
+      "prompt_idx": 10,
+      "input_tokens": 168,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 87.68,
+      "tokens_per_sec": 23.4,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1729
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17832.21,
+        "peak_mb": 150196.06,
+        "post_eos_mb": 17832.21,
+        "overhead_mb": 132363.85
+      }
+    },
+    {
+      "prompt_idx": 11,
+      "input_tokens": 187,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 88.08,
+      "tokens_per_sec": 23.3,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1738
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17832.21,
+        "peak_mb": 150491.76,
+        "post_eos_mb": 17832.21,
+        "overhead_mb": 132659.54
+      }
+    },
+    {
+      "prompt_idx": 12,
+      "input_tokens": 158,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 86.55,
+      "tokens_per_sec": 23.7,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1706
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17832.21,
+        "peak_mb": 150363.83,
+        "post_eos_mb": 17832.21,
+        "overhead_mb": 132531.62
+      }
+    },
+    {
+      "prompt_idx": 13,
+      "input_tokens": 168,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 86.28,
+      "tokens_per_sec": 23.7,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1701
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17832.21,
+        "peak_mb": 150196.06,
+        "post_eos_mb": 17832.21,
+        "overhead_mb": 132363.85
+      }
+    },
+    {
+      "prompt_idx": 14,
+      "input_tokens": 149,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 86.34,
+      "tokens_per_sec": 23.7,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1702
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17832.21,
+        "peak_mb": 150581.94,
+        "post_eos_mb": 17832.21,
+        "overhead_mb": 132749.72
+      }
+    },
+    {
+      "prompt_idx": 15,
+      "input_tokens": 16,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 83.26,
+      "tokens_per_sec": 24.6,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1642
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17832.21,
+        "peak_mb": 150433.04,
+        "post_eos_mb": 17840.6,
+        "overhead_mb": 132600.82
+      }
+    },
+    {
+      "prompt_idx": 16,
+      "input_tokens": 87,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 84.23,
+      "tokens_per_sec": 24.3,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1661
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17840.6,
+        "peak_mb": 150741.32,
+        "post_eos_mb": 17840.6,
+        "overhead_mb": 132900.72
+      }
+    },
+    {
+      "prompt_idx": 17,
+      "input_tokens": 108,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 85.43,
+      "tokens_per_sec": 24.0,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1686
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17840.6,
+        "peak_mb": 150495.95,
+        "post_eos_mb": 17840.6,
+        "overhead_mb": 132655.35
+      }
+    },
+    {
+      "prompt_idx": 18,
+      "input_tokens": 128,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 85.53,
+      "tokens_per_sec": 23.9,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1686
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17840.6,
+        "peak_mb": 150193.96,
+        "post_eos_mb": 17840.6,
+        "overhead_mb": 132353.36
+      }
+    },
+    {
+      "prompt_idx": 19,
+      "input_tokens": 103,
+      "actual_new_tokens": 2048,
+      "generation_time_s": 84.49,
+      "tokens_per_sec": 24.2,
+      "tracer": {
+        "ssm_baseline": true,
+        "attention_layers_found": 0,
+        "note": "Nemotron-H is a Mamba-SSM hybrid with no standard transformer KV cache. This profile captures memory trajectory and throughput instead.",
+        "memory_trajectory_points": 1666
+      },
+      "leak_detection": {
+        "overall_score": 0.0,
+        "summary": "SSM architecture \u2014 no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+        "findings": []
+      },
+      "memory": {
+        "baseline_mb": 17840.6,
+        "peak_mb": 150548.38,
+        "post_eos_mb": 17840.6,
+        "overhead_mb": 132707.78
+      }
+    }
+  ],
+  "aggregate": {
+    "avg_tokens_per_sec": 23.335,
+    "avg_peak_mb": 132608.6875
+  }
+}

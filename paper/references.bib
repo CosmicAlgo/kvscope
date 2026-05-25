@@ -1,0 +1,305 @@
+% =============================================================================
+% Bibliography for the KVScope paper. All entries below were verified against
+% arXiv, ACL Anthology, ACM DL, NeurIPS proceedings, or the official vendor
+% documentation as of 2026-04-28.
+% =============================================================================
+
+% ----- Foundational architecture -------------------------------------------
+@inproceedings{vaswani2017attention,
+  author    = {Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and Lukasz Kaiser and Illia Polosukhin},
+  title     = {Attention Is All You Need},
+  booktitle = {Advances in Neural Information Processing Systems 30 (NeurIPS)},
+  year      = {2017},
+  url       = {https://papers.nips.cc/paper_files/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html},
+}
+
+% ----- KV-cache compression / attention variants ---------------------------
+@misc{shazeer2019mqa,
+  author        = {Noam Shazeer},
+  title         = {Fast Transformer Decoding: One Write-Head Is All You Need},
+  year          = {2019},
+  eprint        = {1911.02150},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.NE},
+  url           = {https://arxiv.org/abs/1911.02150},
+}
+
+@inproceedings{ainslie2023gqa,
+  author    = {Joshua Ainslie and James Lee-Thorp and Michiel de Jong and Yury Zemlyanskiy and Federico Lebr{\'o}n and Sumit Sanghai},
+  title     = {{GQA}: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {4895--4901},
+  year      = {2023},
+  publisher = {Association for Computational Linguistics},
+  url       = {https://aclanthology.org/2023.emnlp-main.298/},
+  doi       = {10.18653/v1/2023.emnlp-main.298},
+}
+
+@misc{child2019sparse,
+  author        = {Rewon Child and Scott Gray and Alec Radford and Ilya Sutskever},
+  title         = {Generating Long Sequences with Sparse Transformers},
+  year          = {2019},
+  eprint        = {1904.10509},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/1904.10509},
+}
+
+@misc{beltagy2020longformer,
+  author        = {Iz Beltagy and Matthew E. Peters and Arman Cohan},
+  title         = {Longformer: The Long-Document Transformer},
+  year          = {2020},
+  eprint        = {2004.05150},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2004.05150},
+}
+
+@misc{deepseek2024v2,
+  author        = {{DeepSeek-AI}},
+  title         = {{DeepSeek-V2}: A Strong, Economical, and Efficient Mixture-of-Experts Language Model},
+  year          = {2024},
+  eprint        = {2405.04434},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2405.04434},
+}
+
+% ----- Reference models used in the experimental study --------------------
+@inproceedings{biderman2023pythia,
+  author    = {Stella Biderman and Hailey Schoelkopf and Quentin Anthony and Herbie Bradley and Kyle O'Brien and Eric Hallahan and Mohammad Aflah Khan and Shivanshu Purohit and USVSN Sai Prashanth and Edward Raff and Aviya Skowron and Lintang Sutawika and Oskar van der Wal},
+  title     = {Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
+  year      = {2023},
+  url       = {https://arxiv.org/abs/2304.01373},
+}
+
+@misc{gemma3_2025,
+  author        = {{Gemma Team, Google DeepMind}},
+  title         = {Gemma 3 Technical Report},
+  year          = {2025},
+  eprint        = {2503.19786},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2503.19786},
+}
+
+@misc{gemma4_2026,
+  author = {{Google DeepMind}},
+  title  = {{Gemma~4}: Frontier Multimodal Open Models},
+  year   = {2026},
+  url    = {https://deepmind.google/models/gemma/gemma-4/},
+  note   = {Released 2026-04-02; model card at
+            \url{https://ai.google.dev/gemma/docs/core/model_card_4}.
+            Accessed 2026-04-28.},
+}
+
+@misc{glm45_2025,
+  author        = {{Z.AI}},
+  title         = {{GLM-4.5}: Agentic, Reasoning, and Coding ({ARC}) Foundation Models},
+  year          = {2025},
+  eprint        = {2508.06471},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2508.06471},
+}
+
+@misc{openai2025gptoss,
+  author = {{OpenAI}},
+  title  = {Introducing {gpt-oss}: Open-Weight Reasoning Models},
+  year   = {2025},
+  url    = {https://openai.com/index/introducing-gpt-oss/},
+  note   = {Online; accessed 2026-04-28.},
+}
+
+% ----- Inference-system / serving research --------------------------------
+@inproceedings{kwon2023pagedattention,
+  author    = {Woosuk Kwon and Zhuohan Li and Siyuan Zhuang and Ying Sheng and Lianmin Zheng and Cody Hao Yu and Joseph E. Gonzalez and Hao Zhang and Ion Stoica},
+  title     = {Efficient Memory Management for Large Language Model Serving with {PagedAttention}},
+  booktitle = {Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)},
+  pages     = {611--626},
+  year      = {2023},
+  publisher = {ACM},
+  doi       = {10.1145/3600006.3613165},
+  url       = {https://arxiv.org/abs/2309.06180},
+}
+
+@misc{zheng2024sglang,
+  author        = {Lianmin Zheng and Liangsheng Yin and Zhiqiang Xie and Chuyue Sun and Jeff Huang and Cody Hao Yu and Shiyi Cao and Christos Kozyrakis and Ion Stoica and Joseph E. Gonzalez and Clark Barrett and Ying Sheng},
+  title         = {{SGLang}: Efficient Execution of Structured Language Model Programs},
+  year          = {2024},
+  eprint        = {2312.07104},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2312.07104},
+}
+
+@inproceedings{dao2022flashattention,
+  author    = {Tri Dao and Daniel Y. Fu and Stefano Ermon and Atri Rudra and Christopher R{\'e}},
+  title     = {{FlashAttention}: Fast and Memory-Efficient Exact Attention with {IO}-Awareness},
+  booktitle = {Advances in Neural Information Processing Systems 35 (NeurIPS)},
+  year      = {2022},
+  url       = {https://arxiv.org/abs/2205.14135},
+}
+
+% ----- Quantisation -------------------------------------------------------
+@inproceedings{dettmers2022llmint8,
+  author    = {Tim Dettmers and Mike Lewis and Younes Belkada and Luke Zettlemoyer},
+  title     = {{LLM.int8()}: 8-bit Matrix Multiplication for Transformers at Scale},
+  booktitle = {Advances in Neural Information Processing Systems 35 (NeurIPS)},
+  year      = {2022},
+  url       = {https://arxiv.org/abs/2208.07339},
+}
+
+% ----- Alternative architectures / controls -------------------------------
+@misc{gu2023mamba,
+  author        = {Albert Gu and Tri Dao},
+  title         = {Mamba: Linear-Time Sequence Modeling with Selective State Spaces},
+  year          = {2023},
+  eprint        = {2312.00752},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2312.00752},
+}
+
+@misc{jiang2024mixtral,
+  author        = {Albert Q. Jiang and Alexandre Sablayrolles and Antoine Roux and Arthur Mensch and Blanche Savary and Chris Bamford and others},
+  title         = {Mixtral of Experts},
+  year          = {2024},
+  eprint        = {2401.04088},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2401.04088},
+}
+
+% ----- Compiler / kernel infrastructure -----------------------------------
+@inproceedings{tillet2019triton,
+  author    = {Philippe Tillet and H. T. Kung and David Cox},
+  title     = {Triton: An Intermediate Language and Compiler for Tiled Neural Network Computations},
+  booktitle = {Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages (MAPL)},
+  pages     = {10--19},
+  year      = {2019},
+  publisher = {ACM},
+  doi       = {10.1145/3315508.3329973},
+  url       = {https://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf},
+}
+
+% ----- Datasets -----------------------------------------------------------
+@inproceedings{merity2017wikitext,
+  author    = {Stephen Merity and Caiming Xiong and James Bradbury and Richard Socher},
+  title     = {Pointer Sentinel Mixture Models},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2017},
+  url       = {https://openreview.net/forum?id=Byj72udxe},
+  note      = {Introduces the {WikiText} corpus.},
+}
+
+% ----- Hardware / monitoring infrastructure -------------------------------
+@misc{nvidia2022hopper,
+  author = {{NVIDIA Corporation}},
+  title  = {{NVIDIA H100 Tensor Core GPU Architecture}},
+  year   = {2022},
+  url    = {https://resources.nvidia.com/en-us-tensor-core/gtc22-whitepaper-hopper},
+  note   = {Whitepaper. Accessed 2026-04-28.},
+}
+
+@misc{nvidia2024h200,
+  author = {{NVIDIA Corporation}},
+  title  = {{NVIDIA H200 Tensor Core GPU}},
+  year   = {2024},
+  url    = {https://www.nvidia.com/en-us/data-center/h200/},
+  note   = {Product documentation. Accessed 2026-04-29.},
+}
+
+@misc{nvidia2023dcgm,
+  author = {{NVIDIA Corporation}},
+  title  = {{DCGM Exporter} -- {NVIDIA} {GPU} Telemetry for {Prometheus}},
+  year   = {2023},
+  url    = {https://docs.nvidia.com/datacenter/cloud-native/gpu-telemetry/latest/dcgm-exporter.html},
+  note   = {Online documentation. Accessed 2026-04-28.},
+}
+
+% ----- Tooling ------------------------------------------------------------
+@inproceedings{paszke2019pytorch,
+  author    = {Adam Paszke and Sam Gross and Francisco Massa and Adam Lerer and James Bradbury and Gregory Chanan and Trevor Killeen and Zeming Lin and Natalia Gimelshein and Luca Antiga and Alban Desmaison and Andreas K\"opf and Edward Yang and Zachary DeVito and Martin Raison and Alykhan Tejani and Sasank Chilamkurthy and Benoit Steiner and Lu Fang and Junjie Bai and Soumith Chintala},
+  title     = {{PyTorch}: An Imperative Style, High-Performance Deep Learning Library},
+  booktitle = {Advances in Neural Information Processing Systems 32 (NeurIPS)},
+  pages     = {8024--8035},
+  year      = {2019},
+  url       = {https://papers.nips.cc/paper_files/paper/2019/hash/bdbca288fee7f92f2bfa9f7012727740-Abstract.html},
+}
+
+@inproceedings{wolf2020transformers,
+  author    = {Thomas Wolf and Lysandre Debut and Victor Sanh and Julien Chaumond and Clement Delangue and Anthony Moi and Pierric Cistac and Tim Rault and R\'emi Louf and Morgan Funtowicz and Joe Davison and Sam Shleifer and Patrick von Platen and Clara Ma and Yacine Jernite and Julien Plu and Canwen Xu and Teven Le Scao and Sylvain Gugger and Mariama Drame and Quentin Lhoest and Alexander M. Rush},
+  title     = {Transformers: State-of-the-Art Natural Language Processing},
+  booktitle = {Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations},
+  pages     = {38--45},
+  year      = {2020},
+  publisher = {Association for Computational Linguistics},
+  doi       = {10.18653/v1/2020.emnlp-demos.6},
+  url       = {https://aclanthology.org/2020.emnlp-demos.6/},
+}
+
+@misc{kvscope2026h100,
+  author = {{KVScope}},
+  title  = {{KVScope}: Profiling Cross-Architecture KV-Cache Dynamics on {NVIDIA H100}},
+  year   = {2026},
+  doi    = {10.5281/zenodo.19871039},
+  note   = {Open-access preprint and artifact package.},
+}
+
+@misc{dubey2024llama,
+  author        = {Abhimanyu Dubey and Abhinav Jauhri and Abhinav Pandey and Abhishek Kadian and Ahmad Al-Dahle and Aiesha Letman and Akhil Mathur and Alan Schelten and Amy Yang and Angela Fan and others},
+  title         = {The {Llama 3} Herd of Models},
+  year          = {2024},
+  eprint        = {2407.21783},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2407.21783},
+}
+
+@misc{qwen2025qwen3,
+  author        = {{Qwen Team}},
+  title         = {{Qwen3} Technical Report},
+  year          = {2025},
+  eprint        = {2505.09388},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2505.09388},
+}
+
+@misc{nvidia2025nemotron,
+  author = {{NVIDIA Corporation}},
+  title  = {{Nemotron-H}: Hybrid State-Space and Attention Language Models},
+  year   = {2025},
+  url    = {https://huggingface.co/nvidia},
+  note   = {Model-card family documentation. Accessed 2026-04-29.},
+}
+
+@misc{liquid2025lfm25,
+  author = {{Liquid AI}},
+  title  = {{LFM2.5-350M}},
+  year   = {2025},
+  url    = {https://huggingface.co/LiquidAI},
+  note   = {Model-card family documentation. Accessed 2026-04-29.},
+}
+
+@misc{leviathan2023fast,
+  author        = {Yaniv Leviathan and Matan Kalman and Yossi Matias},
+  title         = {Fast Inference from Transformers via Speculative Decoding},
+  year          = {2023},
+  eprint        = {2211.17192},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2211.17192},
+}
+
+@misc{dettmers2024qlora,
+  author        = {Tim Dettmers and Artidoro Pagnoni and Ari Holtzman and Luke Zettlemoyer},
+  title         = {{QLoRA}: Efficient Finetuning of Quantized LLMs},
+  year          = {2024},
+  eprint        = {2305.14314},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2305.14314},
+}

@@ -1,0 +1,41 @@
+# KVScope — Core Dependencies
+# Install: pip install -r requirements.txt
+# Or:     pip install -e ".[all]"
+
+# PyTorch (install separately for CUDA-specific wheel)
+# pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.3.0
+
+# Transformers stack
+transformers>=4.47.0
+accelerate>=0.27.0
+bitsandbytes>=0.43.0
+peft>=0.10.0
+sentencepiece
+protobuf
+huggingface_hub
+# WikiText-103 perplexity evaluation
+datasets>=2.14.0
+
+# GPU profiling
+pynvml
+triton>=2.1.0
+
+# Scientific computing
+scipy
+numpy
+pandas
+
+# Visualization
+matplotlib
+seaborn
+plotly
+
+# Observability
+prometheus-client
+psutil
+wandb
+
+# Jupyter
+jupyterlab
+ipywidgets

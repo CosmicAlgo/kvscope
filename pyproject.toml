@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "kvscope"
+version = "0.1.0"
+description = "KV Cache Memory Dynamics Profiler — Comparative study of GQA, MLA, and MoE KV cache architectures in 2026 LLMs"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Rahul"},
+]
+keywords = [
+    "llm", "kv-cache", "profiling", "transformer", "attention",
+    "mla", "gqa", "moe", "memory-leak", "gpu",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "torch>=2.3.0",
+    "transformers>=4.47.0",
+    "accelerate>=0.27.0",
+    "bitsandbytes>=0.43.0",
+    "pynvml",
+    "scipy",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+]
+
+[project.optional-dependencies]
+triton = ["triton>=2.1.0"]
+vllm = ["vllm>=0.6.0"]
+sglang = ["sglang[all]>=0.3.0"]
+observability = ["prometheus-client", "psutil", "wandb"]
+jupyter = ["jupyterlab", "ipywidgets", "nbformat"]
+dev = ["pytest", "ruff", "mypy"]
+all = ["kvscope[triton,vllm,sglang,observability,jupyter,dev]"]
+
+[project.scripts]
+kvscope = "src.cli:main"
+
+[project.urls]
+Repository = "https://github.com/CosmicAlgo/kv-cache-dynamics"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]  # We handle line length manually
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

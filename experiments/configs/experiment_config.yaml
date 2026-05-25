@@ -1,0 +1,129 @@
+# =============================================================================
+# KVScope Experiment Configs — Per-Model YAML Configurations
+# =============================================================================
+# These configs are referenced by run_profiling.sh and individual runners.
+# Adjust model paths and quantization based on your GPU hardware.
+
+# ── Gemma 4 ─────────────────────────────────────────────────────────
+gemma4:
+  name: "Gemma 4"
+  architecture: "GQA + Shared KV + Local/Global interleaving"
+  kv_paradigm: "GQA"
+  
+  variants:
+    # V100 (16GB) / T4 (16GB)
+    v100:
+      model_path: "google/gemma-4-2b-it"
+      quantization: "4bit"
+      max_tokens: 300
+      batch_size: 1
+      expected_kv_per_token_kb: 0.5
+      notes: "2B model in INT4 — fits comfortably in 16GB"
+
+    # L4 (24GB)
+    l4:
+      model_path: "google/gemma-4-9b-it"
+      quantization: "8bit"
+      max_tokens: 300
+      batch_size: 1
+      expected_kv_per_token_kb: 2.0
+
+    # A100/H100 (40-80GB)
+    h100:
+      model_path: "google/gemma-4-9b-it"
+      quantization: "none"
+      max_tokens: 512
+      batch_size: 1
+      expected_kv_per_token_kb: 4.0
+
+  profiling:
+    capture_every_n_steps: 5
+    enable_triton_kernels: true
+    measure_head_utilization: true
+    measure_kv_sharing: true      # Unique to Gemma 4
+
+# ── DeepSeek V4 Flash ─────────────────────────────────────────────
+deepseek_v4:
+  name: "DeepSeek V4 Flash"
+  architecture: "MLA (Multi-Head Latent Attention)"
+  kv_paradigm: "MLA"
+
+  variants:
+    # V100 (16GB) — use V2-Lite as architecture proxy
+    v100:
+      model_path: "deepseek-ai/DeepSeek-V2-Lite"
+      quantization: "4bit"
+      max_tokens: 300
+      batch_size: 1
+      expected_kv_per_token_kb: 0.2  # MLA compressed
+      is_proxy: true
+      proxy_note: "V2-Lite has same MLA architecture as V4, smaller scale"
+
+    # H100 (80GB) — full V4 Flash with CPU offloading
+    h100:
+      model_path: "deepseek-ai/DeepSeek-V4-Flash"
+      quantization: "none"
+      max_tokens: 300
+      batch_size: 1
+      cpu_offload: true
+      max_gpu_experts: 16
+      expert_cache_size: 32
+      expected_kv_per_token_kb: 0.15
+      notes: "284B MoE — experts offloaded to CPU, attention on GPU"
+
+  profiling:
+    capture_every_n_steps: 5
+    enable_triton_kernels: true
+    measure_mla_compression: true   # Unique to DeepSeek
+    measure_head_utilization: true
+    measure_expert_routing: true    # Track which experts fire
+
+# ── GLM 5.1 ──────────────────────────────────────────────────────
+glm51:
+  name: "GLM 5.1 (GLM-4.7-Flash proxy)"
+  architecture: "MoE + DeepSeek Sparse Attention (DSA)"
+  kv_paradigm: "GQA+MoE"
+
+  variants:
+    # V100 (16GB)
+    v100:
+      model_path: "zai-org/GLM-4.7-Flash"
+      quantization: "8bit"
+      max_tokens: 300
+      batch_size: 1
+      expected_kv_per_token_kb: 1.5
+      notes: "30B MoE in INT8 — tight fit on V100"
+
+    # H100 (80GB)
+    h100:
+      model_path: "zai-org/GLM-4.7-Flash"
+      quantization: "none"
+      max_tokens: 512
+      batch_size: 1
+      expected_kv_per_token_kb: 3.0
+
+  profiling:
+    capture_every_n_steps: 5
+    enable_triton_kernels: true
+    measure_head_utilization: true
+    measure_expert_routing: true    # Track MoE expert distribution
+
+# ── Shared Settings ──────────────────────────────────────────────
+shared:
+  prompts:
+    - "Explain the transformer attention mechanism in detail, covering self-attention, multi-head attention, and the role of queries, keys, and values."
+    - "Write a detailed analysis of the economic factors that led to the 2008 financial crisis."
+    - "Describe the process of protein folding and why it is important for drug discovery."
+    - "Compare and contrast existentialism and absurdism, referencing Sartre, Camus, and Kierkegaard."
+    - "Explain how modern operating systems manage virtual memory, including page tables, TLB caches, and swap space."
+
+  leak_detection:
+    growth_threshold: 0.3          # Super-linear growth score > 0.3 = warning
+    post_eos_threshold_mb: 50      # Memory not freed > 50MB after EOS = leak
+    fragmentation_threshold: 0.2   # Reserved - allocated > 20% of peak = fragmentation
+
+  output:
+    results_dir: "./results"
+    figures_dir: "./figures"
+    export_csv: true
+    export_json: true

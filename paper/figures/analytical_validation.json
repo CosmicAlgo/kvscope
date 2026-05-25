@@ -1,0 +1,42 @@
+[
+  {
+    "model": "Pythia-1.4B",
+    "architecture": "Dense MHA",
+    "h_kv": 16,
+    "head_dim": 128,
+    "dtype": "bf16",
+    "theoretical_kb_per_tok_per_layer": 8.0,
+    "measured_kb_per_tok_per_layer": 8.0,
+    "error_pct": 0.0
+  },
+  {
+    "model": "Gemma 4 (27B)",
+    "architecture": "Hybrid Local/Global",
+    "h_kv": 16,
+    "head_dim": 256,
+    "dtype": "bf16",
+    "theoretical_kb_per_tok_per_layer": 16.0,
+    "measured_kb_per_tok_per_layer": 14.666669921875,
+    "error_pct": -8.3
+  },
+  {
+    "model": "Qwen 3.6 (35B)",
+    "architecture": "Hybrid DeltaNet+GQA",
+    "h_kv": 2,
+    "head_dim": 256,
+    "dtype": "bf16",
+    "theoretical_kb_per_tok_per_layer": 2.0,
+    "measured_kb_per_tok_per_layer": 2.0,
+    "error_pct": 0.0
+  },
+  {
+    "model": "gpt-oss (Hybrid)",
+    "architecture": "Hybrid SSM+Attention",
+    "h_kv": 8,
+    "head_dim": 64,
+    "dtype": "bf16",
+    "theoretical_kb_per_tok_per_layer": 2.0,
+    "measured_kb_per_tok_per_layer": 1.118125,
+    "error_pct": -44.1
+  }
+]
