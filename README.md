@@ -50,6 +50,21 @@ Three inference-time strategies benchmarked against baseline: KV quantization (I
 
 ---
 
+## Model Coverage Status
+
+| Model            | H100 V1    | H200 V2    | Status                    |
+|------------------|------------|------------|---------------------------|
+| Pythia-1.4B      | Profiled   | Profiled   | Baseline (MHA anchor)     |
+| Gemma 4          | Profiled   | Profiled   | Production ready          |
+| GLM-4.7-Flash    | Profiled   | Failed     | Float8 conversion blocker |
+| gpt-oss          | Profiled   | Profiled   | Production ready          |
+| Nemotron-H       | -          | Control    | SSM, use_cache=False      |
+| Qwen 3.6         | -          | Profiled   | Added in V2               |
+| LFM2.5-350M      | Failed     | Failed     | CUDA kernel blocker       |
+| DeepSeek V4      | Planned    | Planned    | Not yet attempted         |
+
+---
+
 ## Results Summary
 
 ### H100 V1 Run (2026-04-27)
