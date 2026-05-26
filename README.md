@@ -1,8 +1,6 @@
-# KVScope: KV Cache Memory Dynamics in Pythia-1.4B | Gemma 4 | GLM-4.7-Flash | gpt-oss-120B | Nemotron | LFM2.5-350M | DeepSeek V4
+# KVScope: Cross-Architecture KV Cache Profiling
 
-**Profiling, Leak Detection & Mitigations across seven architecturally distinct KV cache paradigms.**
-
-> A systems-level study of how modern LLMs manage inference memory — comparing pure MHA (Pythia-1.4B), GQA with shared KV (Gemma 4), sparse MoE attention (GLM-4.7-Flash), GQA with sliding/full hybrid (gpt-oss-120B), Mamba SSM + sparse GQA (Nemotron), LIV convolution + GQA hybrid (LFM2.5-350M), and CSA/HCA hybrid (DeepSeek V4) — with custom GPU instrumentation, anomaly detection, and production-grade mitigations.
+Profiling KV cache dynamics across MHA, GQA, sliding-window, MoE, and SSM architectures.
 
 ---
 
