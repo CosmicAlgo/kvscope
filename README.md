@@ -34,29 +34,19 @@ flowchart LR
 
 ---
 
-## Key Components
+## Components
 
-### 1. KV Cache Tracer (`src/profiler/kv_tracer.py`)
-PyTorch forward hooks that instrument attention layers to capture KV tensor shapes, sizes, dtypes, and GPU memory at every decode step. Model-aware: different hook strategies for GQA (Gemma), MoE (GLM), and MLA (DeepSeek).
+### `src/profiler/kv_tracer.py`
+Forward hooks on attention layers that capture K and V tensor shapes, sizes, dtypes, and GPU memory at each decode step. Hook strategy varies by model: GQA layout for Gemma 4 and gpt-oss, plain DynamicCache for GLM, MLA latent extraction for DeepSeek. Supports both legacy and modern HF cache formats.
 
-### 2. Leak Detector (`src/profiler/leak_detector.py`)
-Four statistical detectors running in parallel:
-- **Growth Curve** — Linear regression on KV size vs. step count; super-linear growth = leak
-- **Post-EOS** — Does GPU memory return to baseline after generation? Measures unreleased blocks
-- **Fragmentation** — Tracks `reserved - allocated` gap (CUDA allocator waste)
-- **Layer Anomaly** — Z-score outlier detection on per-layer cache sizes
+### `src/profiler/leak_detector.py`
+Four detectors that run on the captured snapshot data. Growth curve: linear regression on KV size vs step, flagging super-linear accumulation. Post-EOS: NVML memory before and after generation, detecting unreleased blocks. Fragmentation: gap between `reserved` and `allocated` GPU memory. Layer anomaly: Z-score outlier detection on per-layer cache sizes at final step.
 
-### 3. Triton Kernels (`src/profiler/triton_ops.py`)
-Custom GPU kernels for operations too slow in Python:
-- **Per-head L2 norm** — Identifies "dead" KV heads wasting cache space
-- **MLA compression ratio** — Frobenius norm ratio between latent and expanded KV
-- **Attention entropy** — Identifies heads with near-zero entropy (eviction candidates)
+### `src/profiler/triton_ops.py`
+GPU kernels for per-head L2 norm computation, MLA Frobenius compression ratio, and attention entropy. Each kernel has a pure-PyTorch fallback.
 
-### 4. Mitigations (`src/mitigations/mitigations.py`)
-Three production strategies benchmarked:
-- **KV Quantization** (INT8/FP8) — 2x memory reduction, ~0.1% quality loss
-- **H2O Token Eviction** — Keep only "heavy hitter" tokens; up to 75% cache reduction
-- **Prefix KV Sharing** — RadixAttention-style reuse for batched requests
+### `src/mitigations/mitigations.py`
+Three inference-time strategies benchmarked against baseline: KV quantization (INT8/FP8), H2O heavy-hitter token eviction, and prefix KV sharing via RadixAttention.
 
 ---
 
