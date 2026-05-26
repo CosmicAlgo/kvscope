@@ -28,62 +28,13 @@ KVScope instruments all seven with a unified profiling framework to answer:
 ## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph KVScope["KVScope Pipeline"]
-        direction TB
-        
-        subgraph Models["Model Runners"]
-            P[Pythia-1.4B<br/>MHA baseline]
-            G[Gemma 4<br/>GQA + Shared KV]
-            L[GLM-4.7-Flash<br/>MoE + DSA]
-            O[gpt-oss-120B<br/>Sliding/Full hybrid]
-            N[Nemotron<br/>Mamba SSM + GQA]
-            LF[LFM2.5-350M<br/>LIV + GQA hybrid]
-            DS[DeepSeek V4<br/>CSA/HCA hybrid]
-        end
-        
-        subgraph Profiler["Profiling Layer"]
-            T[KV Cache Tracer<br/>PyTorch hooks]
-            K[Triton Kernels<br/>GPU-native ops]
-            D[Leak Detector<br/>Statistical anomaly]
-        end
-        
-        subgraph Mitigations["Mitigations Layer"]
-            Q[KV Quantization<br/>INT8/FP8]
-            H[H2O Eviction<br/>Heavy Hitter]
-            S[Prefix Sharing<br/>RadixAttention]
-        end
-        
-        subgraph Observability["Observability Layer"]
-            NV[NVML GPU Memory]
-            PR[Prometheus Metrics]
-            GR[Grafana Dashboard]
-            WB[W&B/MLflow]
-        end
-        
-        P --> T
-        G --> T
-        L --> T
-        O --> T
-        N --> T
-        LF --> T
-        DS --> T
-        
-        T --> K
-        K --> D
-        D --> PR
-        PR --> GR
-        T --> NV
-        NV --> PR
-        
-        D --> Q
-        D --> H
-        D --> S
-    end
-    
-    Models --> Profiler
-    Profiler --> Mitigations
-    Profiler --> Observability
+flowchart LR
+    Models[7 Model Runners] --> Tracer[KV Cache Tracer<br/>PyTorch hooks]
+    Tracer --> Detectors[Leak Detectors]
+    Tracer --> NVML[NVML Memory Sampler]
+    Detectors --> Results[(JSON Results)]
+    NVML --> Results
+    Results --> Analysis[Analytical Validation<br/>+ Figures]
 ```
 
 ---
