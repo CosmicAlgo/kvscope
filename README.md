@@ -214,6 +214,16 @@ Throughput-vs-decode-position curves are derived from per-step wall times record
 
 ---
 
+## Citation
+
+If you use KVScope, please cite:
+
+Surya, R. (2026). KVScope: Profiling Cross-Architecture KV-Cache
+Dynamics on NVIDIA H100. Zenodo.
+https://doi.org/10.5281/zenodo.19871039
+
+---
+
 ## License
 
 MIT
@@ -222,4 +232,5 @@ MIT
 
 ## Author
 
-Built as a full-stack ML systems project demonstrating GPU-level profiling, distributed systems design, and production observability for LLM inference.
+Rahul Surya
+MSc HPC with Data Science, EPCC, University of Edinburgh
