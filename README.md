@@ -74,9 +74,9 @@ Three inference-time strategies benchmarked against baseline: KV quantization (I
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Pythia-1.4B (pure MHA baseline) | 8.00 | 0.000 | 100.0 | 98 | 87.1 | 12.43 | 0.335 |
 | Gemma 4 (GQA + local/global) | 14.67 | 0.203 | 100.0 | 8610 | 5055.4 | 827.71 | 0.212 |
-| GLM-4.7-Flash (MoE + DSA) | — | — | 100.0 | 417 | 15.1 | 15.29 | 0.329 |
+| GLM-4.7-Flash (MoE + DSA) | - | - | 100.0 | 417 | 15.1 | 15.29 | 0.329 |
 | gpt-oss-120B (sliding/full hybrid) | 2.00 | 0.935 | 100.0 | 57 | 14.9 | 317.66 | 0.241 |
-| Nemotron (Mamba SSM + GQA) | — | — | — | — | — | — | — |
+| Nemotron (Mamba SSM + GQA) | - | - | - | - | - | - | - |
 
 ### H200 V2 Run (2026-05-23)
 *NVIDIA H200 143,771 MiB HBM3e*
@@ -204,13 +204,13 @@ Throughput-vs-decode-position curves are derived from per-step wall times record
 
 ## References
 
-- [Gemma 4 Technical Report](https://ai.google.dev/gemma/docs/core) — Google, 2025
-- [GLM-4 Technical Report](https://arxiv.org/abs/2106.01274) — Zeng et al., 2021
-- [DeepSeek Sparse Attention](https://arxiv.org/abs/2312.08874) — DeepSeek AI, 2023
-- [H2O: Heavy-Hitter Oracle](https://arxiv.org/abs/2306.14048) — Zhang et al., 2023
-- [PagedAttention (vLLM)](https://arxiv.org/abs/2309.06180) — Kwon et al., 2023
-- [GQA: Training Generalized Multi-Query Transformer Models](https://arxiv.org/abs/2305.13245) — Ainslie et al., 2023
-- [Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling](https://arxiv.org/abs/2304.01373) — Biderman et al., 2023
+- [Gemma 4 Technical Report](https://ai.google.dev/gemma/docs/core), Google, 2025
+- [GLM-4 Technical Report](https://arxiv.org/abs/2106.01274), Zeng et al., 2021
+- [DeepSeek Sparse Attention](https://arxiv.org/abs/2312.08874), DeepSeek AI, 2023
+- [H2O: Heavy-Hitter Oracle](https://arxiv.org/abs/2306.14048), Zhang et al., 2023
+- [PagedAttention (vLLM)](https://arxiv.org/abs/2309.06180), Kwon et al., 2023
+- [GQA: Training Generalized Multi-Query Transformer Models](https://arxiv.org/abs/2305.13245), Ainslie et al., 2023
+- [Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling](https://arxiv.org/abs/2304.01373), Biderman et al., 2023
 
 ---
 
