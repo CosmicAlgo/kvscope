@@ -177,16 +177,6 @@ kvscope/
 
 ---
 
-## Technical Highlights
-
-- **Custom Triton kernels** for GPU-native KV head utilization analysis and MLA compression measurement
-- **Checkpoint/resume** infrastructure for cloud Spot VM preemption survival
-- **Unified profiling framework** handling fundamentally different attention architectures through a single API
-- **Statistical leak detection** with four independent detectors (growth curve, post-EOS, fragmentation, layer anomaly)
-- **NVML-level memory tracking** that captures driver-level allocations invisible to PyTorch
-
----
-
 ## Methodology Notes
 
 ### 1. MHA baseline anchor
