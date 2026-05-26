@@ -4,24 +4,19 @@ Profiling KV cache dynamics across MHA, GQA, sliding-window, MoE, and SSM archit
 
 ---
 
-## Why This Project Exists
+## Motivation
 
-KV cache is the dominant memory bottleneck during LLM inference. A single 256K-context request on Gemma 4 31B consumes ~15.7 GB of KV cache alone. Yet modern LLMs each solve this problem with *fundamentally different architectural approaches*:
+KV cache is the dominant memory bottleneck during LLM inference: a 256K-context request on Gemma 4 31B consumes ~15.7 GB of KV cache alone. The seven models profiled here each solve this problem with a fundamentally different architectural approach. KVScope instruments all of them through the same tracing framework to compare how KV cache actually grows during generation, whether unreleased cache accumulates after sequence completion, and which mitigations are effective per architecture.
 
 | Model | KV Cache Strategy | Key Innovation |
 |---|---|---|
-| **Pythia-1.4B** | Pure MHA (architectural anchor) | Baseline: num_kv_heads == num_attention_heads; no compression |
-| **Gemma 4** | GQA + Shared KV + Local/Global interleave | K==V in global layers halves cache; shared KV across layers eliminates redundant projections |
-| **GLM-4.7-Flash** | MoE + DeepSeek Sparse Attention (DSA) | Expert routing makes KV usage non-deterministic per token; sparse attention reduces compute |
-| **gpt-oss-120B** | GQA + Sliding/Full hybrid + MoE FFN | Alternating sliding and full-attention layers; extreme bimodality (CV=0.935) |
-| **Nemotron** | Mamba SSM + Sparse GQA attention | Hybrid state-space + attention; selective quantization for efficiency |
-| **LFM2.5-350M** | LIV convolution + GQA hybrid | 10 LIV convolution blocks + 6 GQA blocks; departure from pure Transformer architecture |
-| **DeepSeek V4** | CSA/HCA hybrid (Compressed Sparse/Heavily Compressed Attention) | 4x/128x sequence compression; 2% KV cache vs traditional GQA; 1M context window |
-
-KVScope instruments all seven with a unified profiling framework to answer:
-1. **How does KV cache actually grow** during generation? (Linear? Super-linear? Fragmented?)
-2. **Are there memory leaks** — unreleased cache after sequence completion?
-3. **Which mitigations work best** for each architecture? (Quantization, eviction, prefix sharing)
+| Pythia-1.4B | Pure MHA (architectural anchor) | Baseline: num_kv_heads == num_attention_heads; no compression |
+| Gemma 4 | GQA + Shared KV + Local/Global interleave | K==V in global layers halves cache; shared KV across layers eliminates redundant projections |
+| GLM-4.7-Flash | MoE + DeepSeek Sparse Attention (DSA) | Expert routing makes KV usage non-deterministic per token; sparse attention reduces compute |
+| gpt-oss-120B | GQA + Sliding/Full hybrid + MoE FFN | Alternating sliding and full-attention layers; extreme bimodality (CV=0.935) |
+| Nemotron | Mamba SSM + Sparse GQA attention | Hybrid state-space + attention; selective quantization for efficiency |
+| LFM2.5-350M | LIV convolution + GQA hybrid | 10 LIV convolution blocks + 6 GQA blocks; departure from pure Transformer architecture |
+| DeepSeek V4 | CSA/HCA hybrid (Compressed Sparse/Heavily Compressed Attention) | 4x/128x sequence compression; 2% KV cache vs traditional GQA; 1M context window |
 
 ---
 
