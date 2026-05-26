@@ -81,7 +81,7 @@ Raw JSON data and logs from the V1 run are archived on Zenodo: [10.5281/zenodo.1
 
 ### 1. Clone the repo
 ```bash
-git clone https://github.com/YOUR_USERNAME/kvscope.git
+git clone https://github.com/CosmicAlgo/kvscope.git
 cd kvscope
 ```
 
