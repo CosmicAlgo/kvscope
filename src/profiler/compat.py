@@ -1,10 +1,10 @@
 """
-compat.py — Compatibility shims for trust_remote_code modeling files.
+compat.py: Compatibility shims for trust_remote_code modeling files.
 
 DeepSeek V2/V3 (and similar third-party models) ship their own
 ``modeling_*.py`` via ``trust_remote_code=True``. Those files were written
 against older transformers versions and import symbols that newer
-transformers (>=4.50) reorganized — for example
+transformers (>=4.50) reorganized; for example
 ``transformers.utils.import_utils.is_torch_fx_available``, which still
 exists at ``transformers.utils.is_torch_fx_available`` but no longer as a
 direct attribute of the ``import_utils`` submodule.
@@ -102,7 +102,7 @@ def _patch_dynamic_cache() -> None:
     except ImportError:
         return
 
-    # seen_tokens — used by DeepSeek's prepare_inputs_for_generation
+    # seen_tokens: used by DeepSeek's prepare_inputs_for_generation
     if not hasattr(DynamicCache, "seen_tokens"):
         def _seen_tokens(self):
             # Prefer the canonical method when present
@@ -128,14 +128,14 @@ def _patch_dynamic_cache() -> None:
 
         DynamicCache.seen_tokens = property(_seen_tokens)
 
-    # get_max_length — renamed to get_max_cache_shape in newer transformers
+    # get_max_length: renamed to get_max_cache_shape in newer transformers
     if not hasattr(DynamicCache, "get_max_length"):
         if hasattr(DynamicCache, "get_max_cache_shape"):
             DynamicCache.get_max_length = DynamicCache.get_max_cache_shape
         else:
             DynamicCache.get_max_length = lambda self: None  # type: ignore[assignment]
 
-    # get_usable_length(new_seq_length, layer_idx=0) — used by DeepSeek's
+    # get_usable_length(new_seq_length, layer_idx=0): used by DeepSeek's
     # forward(). In the legacy API this returned the cache length usable
     # given the about-to-arrive new tokens (handles bounded caches by
     # subtracting overflow). For unbounded DynamicCache it's just
@@ -159,7 +159,7 @@ def _patch_dynamic_cache() -> None:
 
         DynamicCache.get_usable_length = _get_usable_length
 
-    # to_legacy_cache() / from_legacy_cache(...) — older DeepSeek code paths
+    # to_legacy_cache() / from_legacy_cache(): older DeepSeek code paths
     # occasionally round-trip through the legacy tuple format.
     if not hasattr(DynamicCache, "to_legacy_cache"):
         def _to_legacy_cache(self):
@@ -200,7 +200,7 @@ _patch_dynamic_cache()
 # ``torch.accelerator.current_accelerator()``, which only exists in
 # PyTorch >=2.5. On older torch (2.4.x) this raises AttributeError before
 # the model ever loads. We graft a minimal shim that returns the current
-# CUDA device if one is visible, else None — all the MXFP4 validator
+# CUDA device if one is visible, else None; all the MXFP4 validator
 # actually consumes.
 def _patch_torch_accelerator() -> None:
     try:

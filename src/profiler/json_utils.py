@@ -1,13 +1,11 @@
 """
-json_utils.py — Robust JSON serialization for profiling artifacts
-==================================================================
+json_utils.py: Robust JSON serialization for profiling artifacts
 
-scipy/numpy operations inside leak detectors produce `numpy.float64`,
-`numpy.int64`, and `numpy.bool_` scalars. Python's stdlib `json` encoder
+scipy/numpy operations inside leak detectors produce numpy.float64,
+numpy.int64, and numpy.bool_ scalars. Python's stdlib json encoder
 refuses these with "Object of type bool is not JSON serializable".
 
-Use `dump_json` / `to_jsonable` to sanitize and persist profiling reports
-so that a research run is never lost to a serialization hiccup.
+Use dump_json / to_jsonable to sanitize and persist profiling reports.
 
 Usage:
     from src.profiler.json_utils import dump_json
@@ -49,7 +47,7 @@ def _coerce_scalar(obj: Any) -> Any:
             return obj.decode("utf-8", errors="replace")
         except Exception:
             return repr(obj)
-    # Last-resort — never crash a profiling run over a non-essential field
+    # Last-resort: never crash a profiling run over a non-essential field
     return str(obj)
 
 

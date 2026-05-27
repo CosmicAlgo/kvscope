@@ -1,12 +1,11 @@
 """
-leak_detector.py — KVScope Leak & Anomaly Detection
-=====================================================
-KV cache "leaks" manifest in three ways:
-  1. GROWTH LEAK    — cache grows super-linearly vs expected O(n*d*h)
-  2. POST-EOS LEAK  — cache doesn't shrink after sequence ends (paged blocks not freed)
-  3. FRAGMENTATION  — NVML 'used' >> torch.reserved >> torch.allocated (gaps accumulate)
+leak_detector.py: KVScope Leak & Anomaly Detection
 
-This module provides statistical and heuristic detectors for all three.
+KV cache leaks manifest in three ways:
+  1. GROWTH LEAK:   cache grows super-linearly vs expected O(n*d*h)
+  2. POST-EOS LEAK: cache doesn't shrink after sequence ends (paged blocks not freed)
+  3. FRAGMENTATION: NVML 'used' >> torch.reserved >> torch.allocated (gaps accumulate)
+
 Each detector returns a score in [0, 1] where 1 = definite leak.
 
 Usage:
@@ -19,7 +18,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -40,8 +39,8 @@ class LeakFinding:
     evidence: Dict = field(default_factory=dict)
 
     @property
-    def emoji(self) -> str:
-        return {"low": "🟡", "medium": "🟠", "high": "🔴", "critical": "🚨"}.get(self.severity, "❓")
+    def severity_label(self) -> str:
+        return f"[{self.severity.upper()}]"
 
 
 @dataclass
@@ -67,7 +66,7 @@ class GrowthCurveDetector:
 
     Expected model: KV_size(step) = a * step + b  (linear in sequence length)
     If actual growth significantly exceeds this, memory is accumulating faster than
-    expected — typically indicating:
+    expected, typically indicating:
       - vLLM PagedAttention block fragmentation
       - Cache not being properly evicted between requests
       - BnB or quantization overhead accumulating
@@ -92,7 +91,7 @@ class GrowthCurveDetector:
         # If we have explicit per-snapshot seq_len (k_seq_len), and the seq_len
         # caps out at a fixed value while step keeps incrementing, then the
         # cache is operating in sliding-window mode. That's a *feature*, not a
-        # leak — the growth curve will look saturating, not linear. Score = 0.
+        # leak; the growth curve will look saturating, not linear. Score = 0.
         if "k_seq_len" in df.columns:
             seq_max = float(df["k_seq_len"].max())
             seq_p95 = float(df["k_seq_len"].quantile(0.95)) if len(df) > 0 else seq_max
@@ -107,7 +106,7 @@ class GrowthCurveDetector:
                     severity="low",
                     score=0.0,
                     description=(
-                        f"Sliding-window plateau detected — KV seq_len caps at "
+                        f"Sliding-window plateau detected: KV seq_len caps at "
                         f"{int(seq_max)} tokens (p95={int(seq_p95)}, p99={int(seq_p99)}). "
                         f"Growth curve is saturating by design, not super-linear. "
                         f"Skipping linearity check."
@@ -138,7 +137,7 @@ class GrowthCurveDetector:
         slope, intercept, r, p, se = stats.linregress(x, y)
         r2 = r ** 2
 
-        # Fit a quadratic too — if it fits MUCH better, growth is super-linear
+        # Fit a quadratic too; if it fits MUCH better, growth is super-linear
         coeffs2 = np.polyfit(x, y, 2)
         y_pred_quadratic = np.polyval(coeffs2, x)
         ss_res_q = np.sum((y - y_pred_quadratic) ** 2)
@@ -155,7 +154,7 @@ class GrowthCurveDetector:
         residual_trend_slope, *_ = stats.linregress(x, residuals)
 
         # ── Compute anomaly score with leak-specific gating ────────────────
-        # A poor R² alone is not enough to flag a leak — many architectures
+        # A poor R² alone is not enough to flag a leak; many architectures
         # produce non-linear-but-bounded growth (sliding window, paged
         # eviction, KV compression). What actually indicates a leak is:
         #   (a) growth curve is super-linear (quadratic fits MUCH better), AND
@@ -208,7 +207,7 @@ class PostEOSDetector:
 
     After the EOS token is generated (or max_new_tokens is reached), the GPU
     memory used for KV cache should return close to the pre-generation baseline.
-    If it doesn't, blocks are "leaked" — held in reserved memory but not freed.
+    If it doesn't, blocks are "leaked": held in reserved memory but not freed.
 
     Requires post-generation NVML samples.
     """
@@ -239,7 +238,7 @@ class PostEOSDetector:
                 detector="post_eos",
                 severity="low",
                 score=0.0,
-                description="Baseline equals peak — no generation occurred or measurement error.",
+                description="Baseline equals peak: no generation occurred or measurement error.",
             )
 
         leak_fraction = max(0.0, leaked_mb / expected_return)
@@ -280,7 +279,7 @@ class FragmentationDetector:
     Fragmentation = torch.cuda.memory_reserved() - torch.cuda.memory_allocated()
 
     Normal fragmentation: <10% of reserved. High fragmentation indicates the
-    allocator is holding large blocks that can't be coalesced — effectively
+    allocator is holding large blocks that can't be coalesced, effectively
     a soft leak that prevents other allocations.
 
     This is especially pronounced with PagedAttention (vLLM) where block sizes
@@ -362,7 +361,7 @@ class FragmentationDetector:
 
 class LayerAnomalyDetector:
     """
-    Detects per-layer KV anomalies — identifies which specific layers
+    Detects per-layer KV anomalies. Identifies which specific layers
     contribute disproportionately to cache size or grow abnormally.
 
     For Gemma 4: global layers should dominate (full context), local should be tiny.
@@ -451,7 +450,7 @@ class MLACompressionDriftDetector:
             description=(
                 f"MLA compression ratio: mean={ratio_mean:.4f}, std={ratio_std:.4f}, "
                 f"CV={cv:.4f}. "
-                f"{'Stable' if cv < 0.05 else 'Drifting — investigate KV projection'}."
+                f"{'Stable' if cv < 0.05 else 'Drifting: investigate KV projection'}."
             ),
             evidence={
                 "ratio_mean": round(ratio_mean, 5),
@@ -468,7 +467,7 @@ class MLACompressionDriftDetector:
 # Unlike the leak detectors above (which look for *anomalies* relative to a
 # null hypothesis), the two detectors below produce *quantitative descriptors*
 # that are directly comparable across architectures. They always run, always
-# return a finding (severity stays "low" — they are descriptive, not diagnostic),
+# return a finding (severity stays "low"; they are descriptive, not diagnostic),
 # and surface the numbers that go straight into the cross-architecture table
 # in the paper:
 #
@@ -501,7 +500,7 @@ class CacheDensityDetector:
                 detector="cache_density",
                 severity="low",
                 score=0.0,
-                description="No snapshots — cannot compute cache density.",
+                description="No snapshots: cannot compute cache density.",
             )
 
         # Per-snapshot bytes: prefer explicit k+v over total_mb (no rounding)
@@ -563,7 +562,7 @@ class CacheDensityDetector:
                              / per_layer_seq.values)
         density_kb_per_tok_per_layer = float(per_layer_density.mean()) / 1024.0
 
-        # Total density (sum across layers, divided by max seq) — for paper table
+        # Total density (sum across layers, divided by max seq): for paper table
         bytes_per_token_total = total_bytes_at_end / max(peak_seq_len, 1)
 
         return LeakFinding(
@@ -612,7 +611,7 @@ class LayerUniformityDetector:
                 detector="layer_uniformity",
                 severity="low",
                 score=0.0,
-                description="No per-layer snapshots — cannot compute layer uniformity.",
+                description="No per-layer snapshots: cannot compute layer uniformity.",
             )
 
         df = df.copy()
@@ -639,7 +638,7 @@ class LayerUniformityDetector:
                 detector="layer_uniformity",
                 severity="low",
                 score=0.0,
-                description=f"Only {len(per_layer)} layer(s) — cannot compute CV.",
+                description=f"Only {len(per_layer)} layer(s): cannot compute CV.",
             )
 
         mean_bytes = float(per_layer.mean())
@@ -672,7 +671,7 @@ class LayerUniformityDetector:
             severity="low",
             score=0.0,
             description=(
-                f"Per-layer KV CV={cv:.3f} — {category}. "
+                f"Per-layer KV CV={cv:.3f}: {category}. "
                 f"mean={mean_bytes/1024:.1f} KB, std={std_bytes/1024:.1f} KB across "
                 f"{len(per_layer)} layers (last snapshot per layer)."
                 f"{layer_type_breakdown}"
@@ -723,7 +722,7 @@ class KVLeakDetector:
 
         # Guard: no data captured
         if df.empty or "step" not in df.columns:
-            report.summary = "\u26a0\ufe0f  No KV cache snapshots were captured. Hooks may not have found KV tensors."
+            report.summary = "No KV cache snapshots were captured. Hooks may not have found KV tensors."
             report.overall_leak_score = 0.0
             return report
 
@@ -758,7 +757,7 @@ class KVLeakDetector:
         report.findings.append(self.uniformity_detector.detect(df))
 
         # Overall score: weighted max of individual scores.
-        # cache_density and layer_uniformity have weight 0 — they are
+        # cache_density and layer_uniformity have weight 0; they are
         # descriptive cross-architecture metrics, not anomaly indicators.
         weights = {
             "post_eos": 0.35,
@@ -782,10 +781,10 @@ class KVLeakDetector:
         # Summary
         critical = [f for f in report.findings if f.severity in ("critical", "high")]
         if not critical:
-            report.summary = f"✅ No significant KV cache leaks detected. Score: {report.overall_leak_score:.2f}"
+            report.summary = f"No significant KV cache leaks detected. Score: {report.overall_leak_score:.2f}"
         else:
             report.summary = (
-                f"⚠️  {len(critical)} issues detected. "
+                f"{len(critical)} issues detected. "
                 f"Overall leak score: {report.overall_leak_score:.2f}. "
                 f"Check: {', '.join(f.detector for f in critical)}"
             )
@@ -795,13 +794,13 @@ class KVLeakDetector:
     def print_report(self, report: DetectorReport):
         """Print a formatted report to stdout."""
         print("=" * 65)
-        print(f"  KVScope Leak Detection Report — {report.model_type.upper()}")
+        print(f"  KVScope Leak Detection Report: {report.model_type.upper()}")
         print("=" * 65)
         print(f"  {report.summary}")
         print(f"  Overall score: {report.overall_leak_score:.3f} (0=clean, 1=severe leak)")
         print()
         for finding in report.findings:
-            print(f"  {finding.emoji} [{finding.detector}] score={finding.score:.3f} ({finding.severity})")
+            print(f"  {finding.severity_label} [{finding.detector}] score={finding.score:.3f} ({finding.severity})")
             print(f"     {finding.description}")
             if finding.layers_affected:
                 print(f"     Layers: {finding.layers_affected}")

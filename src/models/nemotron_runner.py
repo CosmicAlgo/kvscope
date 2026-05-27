@@ -1,5 +1,5 @@
 """
-nemotron_runner.py — NVIDIA Nemotron Profiled Runner
+nemotron_runner.py: NVIDIA Nemotron Profiled Runner
 ===================================================
 NVIDIA Nemotron models use a hybrid Mamba SSM + sparse GQA attention architecture.
 Key characteristics:
@@ -179,7 +179,7 @@ class NemotronRunner:
                 # SSM baseline: skip KVTracer, sample memory from background thread
                 # use_cache=False because Nemotron requires its custom cache class
                 # which isn't importable; generation still works (slightly slower)
-                print("[NemotronRunner] SSM baseline mode — skipping KVTracer, sampling memory trajectory")
+                print("[NemotronRunner] SSM baseline mode: skipping KVTracer, sampling memory trajectory")
                 gen_kwargs["use_cache"] = False
                 gen_kwargs.pop("cache_position", None)
                 thread, stop_event, trajectory = self._ssm_memory_sampler(nvml, interval_s=0.05)
@@ -201,7 +201,7 @@ class NemotronRunner:
                 }
                 leak_detection_data = {
                     "overall_score": 0.0,
-                    "summary": "SSM architecture — no KV cache to leak. Memory is O(1) w.r.t sequence length.",
+                    "summary": "SSM architecture: no KV cache to leak. Memory is O(1) w.r.t sequence length.",
                     "findings": [],
                 }
             else:

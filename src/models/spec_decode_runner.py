@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-spec_decode_runner.py — Speculative Decoding KV Cache Profiler
-==============================================================
+spec_decode_runner.py: Speculative Decoding KV Cache Profiler
+=============================================================
 Profiles BOTH KV caches independently during speculative decoding:
   - Draft model: Llama-3.2-1B (fast, small KV)
   - Verifier model: Llama-3.1-70B (slow, large KV)

@@ -1,6 +1,6 @@
 """
-lfm25_runner.py — LiquidAI LFM2.5-350M Profiled Runner
-=======================================================
+lfm25_runner.py: LiquidAI LFM2.5-350M Profiled Runner
+======================================================
 LFM2.5-350M uses a hybrid Linear Input-Varying Systems (LIV) + GQA architecture.
 Key characteristics:
 

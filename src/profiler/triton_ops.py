@@ -1,23 +1,16 @@
 """
-triton_ops.py — KVScope Custom GPU Kernels
-==========================================
-Custom Triton kernels for KV cache analysis operations that are too slow
-or impossible to do accurately from Python-level hooks alone.
+triton_ops.py: KVScope Custom GPU Kernels
 
-Kernels:
-  1. kv_l2_norm_kernel      — Compute per-head L2 norms of K/V tensors
-                              (measures which heads carry the most information)
-  2. mla_compression_kernel — Compute effective compression ratio for MLA
-                              by measuring ||latent||_F / ||expanded||_F per token
-  3. kv_entropy_kernel      — Compute attention entropy across heads
-                              (low entropy = head is "dead", wasting cache space)
+Triton kernels for KV cache analysis. Three operations:
+  1. kv_l2_norm_kernel:      per-head L2 norms of K/V tensors
+  2. mla_compression_kernel: Frobenius norm ratio ||latent||_F / ||expanded||_F per token
+  3. kv_entropy_kernel:      attention entropy across heads
 
-All kernels operate on GPU tensors directly to avoid Python-level overhead
-corrupting timing measurements.
+All kernels operate on GPU tensors directly. Each has a pure-PyTorch fallback.
 
 Requirements:
     triton >= 2.1.0
-    CUDA compute capability >= 7.0 (T4, V100, A100, L4 all qualify)
+    CUDA compute capability >= 7.0
 
 Usage:
     from src.profiler.triton_ops import measure_kv_head_utilization, measure_mla_compression
@@ -43,7 +36,7 @@ import triton.language as tl
 def kv_head_l2_norm_kernel(
     k_ptr,            # [B, H, S, D] float16/bfloat16
     v_ptr,
-    k_norm_out_ptr,   # [B, H] output — L2 norm per head
+    k_norm_out_ptr,   # [B, H] output: L2 norm per head
     v_norm_out_ptr,
     B: tl.constexpr,
     H: tl.constexpr,
@@ -105,7 +98,7 @@ def kv_head_l2_norm_kernel(
 def _torch_kv_head_l2(k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Plain-PyTorch fallback for per-head L2 norms.
 
-    Used when the Triton kernel cannot be compiled (rare — typically driven
+    Used when the Triton kernel cannot be compiled (rare, typically driven
     by Triton API churn between major releases). Mathematically identical
     to the kernel; about 5–15% slower in practice for the small tensors we
     feed it (one decode-step KV per layer).
@@ -133,8 +126,8 @@ def measure_kv_head_utilization(
         dict with:
           "k_norms": [B, H] L2 norm per batch per head
           "v_norms": [B, H]
-          "dead_head_mask": [H] bool — True if head norm < threshold
-          "head_utilization_ratio": float — fraction of non-dead heads
+          "dead_head_mask": [H] bool, True if head norm < threshold
+          "head_utilization_ratio": float, fraction of non-dead heads
           "backend_used": which path was actually taken
     """
     # Normalize to [B, H, S, D]
@@ -228,7 +221,7 @@ def mla_frobenius_ratio_kernel(
         lat_base = b * S * d_c + s_idx * d_c
         lat_offsets = lat_base + tl.arange(0, d_c if d_c <= 512 else 512)
 
-        # If d_c > 512, we'd need to loop — for now assume d_c <= 512
+        # If d_c > 512, we'd need to loop; for now assume d_c <= 512
         # (DeepSeek V3: d_c=512, this holds)
         lat_vals = tl.load(
             latent_ptr + tl.arange(0, 512)[:d_c if d_c <= 512 else 512] + lat_base,
@@ -237,7 +230,7 @@ def mla_frobenius_ratio_kernel(
         ).to(tl.float32)
         lat_norm_sq = tl.sum(lat_vals * lat_vals)
 
-        # Expanded — loop in chunks of 512 since D can be large (e.g., 128*128=16384)
+        # Expanded: loop in chunks of 512 since D can be large (e.g., 128*128=16384)
         exp_norm_sq = tl.zeros([1], dtype=tl.float32)
         exp_base = b * S * D + s_idx * D
         n_chunks = (D + 511) // 512
@@ -279,8 +272,8 @@ def measure_mla_compression(
     Measure effective information compression in MLA.
 
     Args:
-        latent:   [B, S, d_c]  — compressed KV in latent space
-        expanded: [B, S, n_heads*head_dim]  — full uprojected KV
+        latent:   [B, S, d_c], compressed KV in latent space
+        expanded: [B, S, n_heads*head_dim], full uprojected KV
         backend:  "auto" (try Triton, fall back to torch), "triton", "torch"
 
     Returns:
@@ -425,12 +418,12 @@ def run_kv_analysis(
 # ─── Self-test ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("KVScope Triton Kernels — Self Test")
+    print("KVScope Triton Kernels: Self Test")
     print(f"Triton version: {triton.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()}")
 
     if not torch.cuda.is_available():
-        print("[!] No CUDA — skipping kernel tests")
+        print("[!] No CUDA: skipping kernel tests")
     else:
         device = "cuda"
         B, H, S, D = 1, 8, 128, 64
@@ -467,4 +460,4 @@ if __name__ == "__main__":
         print(f"    Mean entropy    : {ent['mean_entropy']:.3f}")
         print(f"    Low entropy hds : {ent['low_entropy_head_fraction']:.1%}")
 
-        print("\n[✓] All kernels passed.")
+        print("\n[PASS] All kernels passed.")

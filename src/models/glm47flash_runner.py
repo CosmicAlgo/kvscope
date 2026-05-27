@@ -1,20 +1,18 @@
 """
-glm47flash_runner.py — GLM-4.7-Flash Profiled Runner
-==========================================================
-GLM-4.7-Flash uses a MoE architecture
-with DeepSeek Sparse Attention (DSA). Key characteristics:
+glm47flash_runner.py: GLM-4.7-Flash Profiled Runner
+
+GLM-4.7-Flash uses a MoE architecture with DeepSeek Sparse Attention (DSA).
+Key characteristics:
 
   - 744B total / 40B active parameters (GLM-5.1 full)
-  - 30B MoE (GLM-4.7-Flash — our runnable proxy)
+  - 30B MoE (GLM-4.7-Flash, our runnable proxy)
   - DSA reduces long-context compute by sparsifying attention
   - KV cache behavior is standard GQA but expert routing affects
     which FFN experts fire, creating non-uniform compute load
 
-For our profiling purposes, GLM-4.7-Flash is architecturally representative
-of the GLM family's KV cache behavior. The attention mechanism is the same;
-only the FFN routing differs between model sizes.
-
-This runner is a thin wrapper around the generic profiling infrastructure.
+GLM-4.7-Flash is architecturally representative of the GLM family's KV
+cache behavior. The attention mechanism is the same; only the FFN routing
+differs between model sizes.
 """
 
 import argparse

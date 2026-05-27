@@ -1,5 +1,5 @@
 """
-qwen36_runner.py — Qwen3.6 Profiled Runner
+qwen36_runner.py: Qwen3.6 Profiled Runner
 ===================================================
 Qwen3.6 has a hybrid architecture:
 - 75% Gated DeltaNet layers (no traditional KV cache - uses state-space-like linear attention)

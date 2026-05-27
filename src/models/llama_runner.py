@@ -72,7 +72,7 @@ class LlamaRunner:
         for idx, prompt in enumerate(prompts):
             print(f"\n[LlamaRunner] Prompt {idx+1}/{len(prompts)}")
 
-            # Llama-3.1-70B is a base model — use raw prompt
+            # Llama-3.1-70B is a base model; use raw prompt
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
             input_len = inputs["input_ids"].shape[1]
 

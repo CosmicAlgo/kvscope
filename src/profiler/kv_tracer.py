@@ -1,19 +1,19 @@
 """
-kv_tracer.py — KVScope Core Profiler
-=====================================
+kv_tracer.py: KVScope Core Profiler
+
 Instruments transformer attention layers via PyTorch forward hooks to capture
 KV cache tensors at every decode step. Handles the three architecturally
 distinct KV cache paradigms:
 
-  Gemma 4:      GQA + Shared KV + Local/Global sliding-window interleaving
-                K==V constraint in global layers (unique to Gemma 4)
+  Gemma 4:     GQA + Shared KV + Local/Global sliding-window interleaving;
+               K==V constraint in global layers (unique to Gemma 4)
 
-  GLM 5.1:      MoE + DSA (DeepSeek Sparse Attention); KV is non-deterministic
-                per token due to expert routing — we capture per-expert KV load
+  GLM 5.1:     MoE + DSA (DeepSeek Sparse Attention); KV is non-deterministic
+               per token due to expert routing; we capture per-expert KV load
 
-  DeepSeek V4:  MLA (Multi-Head Latent Attention); KV stored in compressed
-                latent space [B, S, d_c] before uprojection to [B, H, S, d_h]
-                We capture BOTH latent and expanded forms to compute compression ratio.
+  DeepSeek V4: MLA (Multi-Head Latent Attention); KV stored in compressed
+               latent space [B, S, d_c] before uprojection to [B, H, S, d_h];
+               we capture BOTH latent and expanded forms to compute compression ratio.
 
 Usage:
     tracer = KVCacheTracer(model, model_type="gemma4")
@@ -22,7 +22,6 @@ Usage:
     report = tracer.report()
 """
 
-import gc
 import time
 import warnings
 from contextlib import contextmanager
@@ -38,7 +37,6 @@ import torch.nn as nn
 
 @dataclass
 class KVSnapshot:
-    """Single-point measurement of KV cache state at one layer, one decode step."""
     step: int                    # Token generation step index
     layer_idx: int               # Layer number (0-indexed)
     layer_type: str              # "local" | "global" | "dense" | "moe"
@@ -75,7 +73,6 @@ class KVSnapshot:
 
 @dataclass
 class LayerProfile:
-    """Aggregated profile for a single layer across all decode steps."""
     layer_idx: int
     layer_type: str
     snapshots: List[KVSnapshot] = field(default_factory=list)
@@ -193,7 +190,7 @@ def _read_layer_types_from_config(module: nn.Module) -> Optional[List[str]]:
 
     HF attention modules often expose ``self.config`` (pointing at the
     full model config). When present, we read the canonical per-layer
-    attention-type list directly from the config — the only unambiguous
+    attention-type list directly from the config, the only unambiguous
     ground truth for hybrid architectures like gpt-oss.
     """
     cfg = getattr(module, "config", None)
@@ -244,7 +241,7 @@ def classify_gptoss_layer(name: str, module: nn.Module) -> Optional[str]:
 
 
 def classify_mha_layer(name: str, module: nn.Module) -> Optional[str]:
-    """Vanilla multi-head attention classifier — used by the MHA baseline.
+    """Vanilla multi-head attention classifier, used by the MHA baseline.
 
     Targets pure-MHA transformer attention modules that do *not* use grouped-
     query (Q heads == KV heads), no sliding window, no MoE routing. This is
@@ -378,7 +375,7 @@ def classify_deepseek_v4_layer(name: str, module: nn.Module) -> Optional[str]:
     if not any(k in name for k in ["attention", "attn", "self_attn"]):
         return None
 
-    # 1. Per-module attribute (preferred — modeling file ground truth)
+    # 1. Per-module attribute (preferred: modeling file ground truth)
     for attr in ("attention_type", "layer_type", "attn_type"):
         v = getattr(module, attr, None)
         if isinstance(v, str):
@@ -414,12 +411,12 @@ def classify_nemotron_layer(name: str, module: nn.Module) -> Optional[str]:
     """
     NVIDIA Nemotron-H layer classifier.
 
-    Nemotron-3-Super-120B-A12B is NOT a pure MoE — it's a Nemotron-H hybrid
+    Nemotron-3-Super-120B-A12B is NOT a pure MoE; it's a Nemotron-H hybrid
     (State-Space + Attention). The config exposes ``model_type='nemotron_h'``
     with 88 hidden layers, most of which are Mamba SSM blocks and only a
-    fraction are attention. Mamba blocks maintain a *constant-size* SSM state
+    fraction are attention. Mamba blocks maintain a constant-size SSM state
     that does not scale with sequence length, so they have no traditional KV
-    cache to profile — they simply don't get hooked here (the name-based
+    cache to profile. They simply don't get hooked here (the name-based
     filter below only matches attention modules).
 
     Of the attention modules that DO get hooked, all are dense GQA
@@ -510,7 +507,7 @@ class KVCacheTracer:
           3. Module's class name MUST end in "Attention". This excludes inner
              helpers (e.g. ``GptOssAttentionSinkBuffer``) and weight-tied
              parameter wrappers that happen to live under an "attn" name.
-          4. De-duplicate by module identity — even if the same module is
+          4. De-duplicate by module identity: even if the same module is
              reachable via two different names (weight-tied layers), it gets
              exactly one hook.
         """
@@ -683,7 +680,7 @@ class KVCacheTracer:
         for i, item in enumerate(args or ()):
             self._describe_item(f"  args[{i}]", item)
 
-        # kwargs (the most important — modern HF puts the Cache here)
+        # kwargs (modern HF puts the Cache here)
         print(f"[KVTracer DEBUG] kwargs keys: {list(kwargs.keys()) if kwargs else []}")
         for k, v in (kwargs or {}).items():
             self._describe_item(f"  kwargs[{k!r}]", v)
@@ -805,7 +802,7 @@ class KVCacheTracer:
         )
 
         # Gemma 4 global layers: K == V (model ties them)
-        # This means v_bytes is identical to k_bytes — flag it
+        # This means v_bytes is identical to k_bytes; flag it
         if self.model_type == "gemma4" and layer_type == "global":
             if torch.equal(k, v):
                 snap.v_bytes = 0  # Don't double-count; K IS V
@@ -838,7 +835,7 @@ class KVCacheTracer:
                 latent = getattr(module, attr)
                 break
 
-        # Also check past_key_value — in some MLA implementations the latent
+        # Also check past_key_value: in some MLA implementations the latent
         # is stored as a 3D tensor [B, S, d_c] vs standard 4D [B, H, S, d_h]
         kv = self._find_kv_cache(
             module, args=args, kwargs=kwargs, outputs=outputs,
@@ -916,7 +913,7 @@ class KVCacheTracer:
           3. outputs                                     (very old HF / custom impls)
           4. module attributes                           (rare)
         """
-        # 1. kwargs — primary path for modern HF.
+        # 1. kwargs: primary path for modern HF.
         # `layer_past` is the GPT-NeoX / Pythia legacy name; without it the
         # MHA baseline silently produces empty snapshots.
         if kwargs:
@@ -925,14 +922,14 @@ class KVCacheTracer:
                 if kv is not None:
                     return kv
 
-        # 2. positional args — scan for any Cache-like object
+        # 2. positional args: scan for any Cache-like object
         if args:
             for item in args:
                 kv = self._kv_from_obj(item, cache_layer_idx)
                 if kv is not None:
                     return kv
 
-        # 3. outputs — older HF returned (attn_out, attn_weights, past_kv)
+        # 3. outputs: older HF returned (attn_out, attn_weights, past_kv)
         if outputs is not None and isinstance(outputs, (tuple, list)):
             for item in outputs:
                 kv = self._kv_from_obj(item, cache_layer_idx)
@@ -1125,7 +1122,7 @@ class KVCacheTracer:
 
         # Per-step wall times (first timestamp seen at each step). This is
         # what we need to plot throughput at intermediate sequence-length
-        # checkpoints (deliverable #8 — seq length scaling) without having
+        # checkpoints (deliverable #8: seq length scaling) without having
         # to re-run anything. Each entry is the millisecond at which step
         # `i` started. Diff consecutive entries to get per-step latency.
         step_first_ts: Dict[int, float] = {}

@@ -1,6 +1,6 @@
 """
-mha_baseline_runner.py — Pure multi-head-attention KV cache baseline
-======================================================================
+mha_baseline_runner.py: Pure multi-head-attention KV cache baseline
+=====================================================================
 
 A small, intentionally classical model that uses *vanilla* multi-head
 attention (one KV head per Q head, no GQA, no MQA, no MLA, no sliding

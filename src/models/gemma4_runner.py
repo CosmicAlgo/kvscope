@@ -1,19 +1,17 @@
 """
-gemma4_runner.py — Gemma 4 Profiled Inference Runner
-=====================================================
-Handles loading, quantization, and profiled inference for Gemma 4 models.
+gemma4_runner.py: Gemma 4 Profiled Inference Runner
 
 Gemma 4 KV cache architecture:
   - GQA: 2 Q heads share 1 KV head (local layers) / 8 Q heads share 1 KV head (global)
   - Shared KV Cache: last N layers reuse KV from earlier layers
   - Sliding window: local layers attend to only 512/1024 tokens
   - Global layers: attend to full context (up to 256K)
-  - K == V in global attention layers (unique constraint — cache is halved)
+  - K == V in global attention layers (unique constraint; cache is halved)
 
 Supported models:
-  gemma-4-2b-it  — 2B dense, fits fp16 on T4 (16GB)
-  gemma-4-9b-it  — 9B dense, fits Q8 on L4 (24GB) or fp16 on A100
-  gemma-4-27b-it — 27B dense, fits Q4 on A100 40GB (for ambitious runs)
+  gemma-4-2b-it:  2B dense, fits fp16 on T4 (16GB)
+  gemma-4-9b-it:  9B dense, fits Q8 on L4 (24GB) or fp16 on A100
+  gemma-4-27b-it: 27B dense, fits Q4 on A100 40GB
 """
 
 import gc
