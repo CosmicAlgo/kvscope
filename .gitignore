@@ -41,3 +41,4 @@ results/**/.checkpoint
 
 # Large archives
 *.tar.gz
+.claude
