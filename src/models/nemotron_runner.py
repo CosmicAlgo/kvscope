@@ -49,8 +49,7 @@ def _load_nemotron_cache_class():
     global NemotronHHybridDynamicCache
     import os
     import sys
-    import importlib
-    
+
     # Add HF cache modules dir to path so package imports work (fixes relative imports)
     cache_modules = os.path.expanduser("~/.cache/huggingface/modules")
     if cache_modules not in sys.path:

@@ -16,14 +16,12 @@ Usage:
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
-from scipy.signal import savgol_filter
 
 
 # ─── Result Types ─────────────────────────────────────────────────────────────

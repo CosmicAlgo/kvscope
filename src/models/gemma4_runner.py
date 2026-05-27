@@ -18,7 +18,7 @@ import gc
 import json
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import torch
 from transformers import (
@@ -30,7 +30,6 @@ from transformers import (
 
 from src.profiler.kv_tracer import KVCacheTracer, NVMLSampler
 from src.profiler.leak_detector import KVLeakDetector
-from src.profiler.triton_ops import run_kv_analysis
 from src.profiler.json_utils import dump_json
 
 
