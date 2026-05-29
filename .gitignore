@@ -42,3 +42,6 @@ results/**/.checkpoint
 # Large archives
 *.tar.gz
 .claude
+
+# Paper source (already submitted to Zenodo separately)
+paper/
