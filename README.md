@@ -83,9 +83,10 @@ Three inference-time strategies benchmarked against baseline: KV quantization (I
 
 The V2 run expanded the corpus to 20 prompts (15 diverse + 5 stress tests) and validated all architectures at scale. Key V2 JSON artifacts are in `results/h200_v2/`. V1 artifacts remain in `results/h100_v1/` for reproducibility.
 
-Raw JSON data and logs from the run are archived on Zenodo: V1: 10.5281/zenodo.19871039
-V2: 10.5281/zenodo.20445398
-
+Raw JSON data and logs from the run are archived on Zenodo: 
+V1: [Version 1](https://doi.org/10.5281/zenodo.19871039)
+V2: [Version 2](https://doi.org/10.5281/zenodo.20445398)
+ 
 ---
 
 ## Quick Start
