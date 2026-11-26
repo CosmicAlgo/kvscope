@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "kvscope"
@@ -43,16 +43,15 @@ dependencies = [
 triton = ["triton>=2.1.0"]
 vllm = ["vllm>=0.6.0"]
 sglang = ["sglang[all]>=0.3.0"]
-observability = ["prometheus-client", "psutil", "wandb"]
 jupyter = ["jupyterlab", "ipywidgets", "nbformat"]
 dev = ["pytest", "ruff", "mypy"]
-all = ["kvscope[triton,vllm,sglang,observability,jupyter,dev]"]
+all = ["kvscope[triton,vllm,sglang,jupyter,dev]"]
 
 [project.scripts]
 kvscope = "src.cli:main"
 
 [project.urls]
-Repository = "https://github.com/CosmicAlgo/kv-cache-dynamics"
+Repository = "https://github.com/CosmicAlgo/kvscope"
 
 [tool.setuptools.packages.find]
 where = ["."]

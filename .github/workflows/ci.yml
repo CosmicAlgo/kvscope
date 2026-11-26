@@ -35,3 +35,9 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+      - name: Package installs and the kvscope command runs
+        run: |
+          pip install --no-deps .
+          kvscope list
+          kvscope info gptoss

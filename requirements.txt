@@ -31,11 +31,6 @@ matplotlib
 seaborn
 plotly
 
-# Observability
-prometheus-client
-psutil
-wandb
-
 # Jupyter
 jupyterlab
 ipywidgets
