@@ -144,3 +144,47 @@ fn cli_errors_exit_2_with_a_message() {
     assert_eq!(out.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&out.stderr).contains("cannot read"));
 }
+
+#[test]
+fn engine_settings_follow_the_plan() {
+    let layout = parse_config(GPTOSS).unwrap();
+    let p = plan(&layout, &request(Some(40.0)));
+    let names: Vec<_> = p.engines.iter().map(|e| e.engine).collect();
+    assert_eq!(names, ["vllm", "sglang", "llama.cpp", "ollama"]);
+    assert!(p.engines[0]
+        .command
+        .contains("--max-model-len 32768 --max-num-seqs 16"));
+    // gpt-oss has sliding layers, so the vLLM hybrid-manager note applies.
+    assert!(p.engines[0]
+        .notes
+        .iter()
+        .any(|n| n.contains("hybrid KV cache manager")));
+
+    let qwen = parse_config(include_str!("fixtures/qwen3.6-35b-a3b.json")).unwrap();
+    let q = plan(&qwen, &request(None));
+    assert!(!q.engines[0]
+        .notes
+        .iter()
+        .any(|n| n.contains("hybrid KV cache manager")));
+}
+
+#[test]
+fn cli_sbatch() {
+    let out = kvscope(&[
+        "plan",
+        "--config",
+        FIXTURE,
+        "--model",
+        "openai/gpt-oss-120b",
+        "--context",
+        "8k",
+        "--gpus",
+        "2",
+        "--sbatch",
+    ]);
+    assert!(out.status.success());
+    let script = String::from_utf8(out.stdout).unwrap();
+    assert!(script.starts_with("#!/bin/bash\n"));
+    assert!(script.contains("#SBATCH --gres=gpu:2\n"));
+    assert!(script.contains("vllm serve openai/gpt-oss-120b --max-model-len 8192"));
+}

@@ -7,6 +7,7 @@
 //! * `input`: given by the user.
 
 use crate::config::{LayerKind, ModelLayout};
+use crate::engines::{self, EngineCommand, LaunchSpec};
 use crate::gpu::Gpu;
 use crate::kv::{density_bytes_per_token_per_layer, sequence_kv, KvOptions};
 use crate::measured::{self, Measurement};
@@ -97,6 +98,8 @@ pub struct Plan {
     pub gpu_memory_bytes: Labelled<f64>,
     pub fit: Option<Fit>,
     pub measured: Vec<Measurement>,
+    /// Settings that run this plan on each engine.
+    pub engines: Vec<EngineCommand>,
     pub notes: Vec<String>,
 }
 
@@ -207,7 +210,24 @@ pub fn plan(layout: &ModelLayout, req: &PlanRequest) -> Plan {
             .as_deref()
             .map(measured::for_model)
             .unwrap_or_default(),
+        engines: engines::all(&launch_spec(layout, req)),
         notes,
+    }
+}
+
+/// Engine settings for a request.
+pub fn launch_spec(layout: &ModelLayout, req: &PlanRequest) -> LaunchSpec {
+    LaunchSpec {
+        model: req.model_id.clone().unwrap_or_else(|| "<model>".into()),
+        seq_len: req.seq_len,
+        users: req.users,
+        gpu_count: req.gpu_count,
+        kv_dtype: req.kv.dtype,
+        utilisation: req.utilisation.value,
+        has_sliding: layout
+            .layers
+            .iter()
+            .any(|l| matches!(l, LayerKind::Sliding { .. })),
     }
 }
 

@@ -1,6 +1,7 @@
 //! `kvscope` command-line program.
 
 use clap::{Parser, Subcommand, ValueEnum};
+use kvscope_core::engines;
 use kvscope_core::gpu::{self, CATALOG};
 use kvscope_core::plan::{self, Basis, ByPolicy, Labelled, Plan, PlanRequest};
 use kvscope_core::units::{fmt_bytes, GIB, KIB};
@@ -65,8 +66,11 @@ struct PlanArgs {
     #[arg(long)]
     utilisation: Option<f64>,
     /// Print the plan as JSON.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "sbatch")]
     json: bool,
+    /// Print a Slurm batch script that runs vLLM with these settings.
+    #[arg(long)]
+    sbatch: bool,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -159,7 +163,11 @@ fn run_plan(args: PlanArgs) -> Result<(), String> {
         utilisation,
     };
     let p = plan::plan(&layout, &request);
-    if args.json {
+    if args.sbatch {
+        let spec = plan::launch_spec(&layout, &request);
+        let script = engines::sbatch_vllm(&spec, &sbatch_summary(&p));
+        print!("{script}");
+    } else if args.json {
         let json = serde_json::to_string_pretty(&p).map_err(|e| e.to_string())?;
         println!("{json}");
     } else {
@@ -328,6 +336,14 @@ fn render(p: &Plan) -> String {
         }
         out.push('\n');
     }
+    out.push_str("  Engine settings for this workload [calculated]:\n");
+    for e in &p.engines {
+        out.push_str(&format!("    {}:\n      {}\n", e.engine, e.command));
+        for n in &e.notes {
+            out.push_str(&format!("      note: {n}\n"));
+        }
+    }
+    out.push('\n');
     if !p.notes.is_empty() {
         out.push_str("  Notes:\n");
         for n in &p.notes {
@@ -335,4 +351,28 @@ fn render(p: &Plan) -> String {
         }
     }
     out
+}
+
+fn sbatch_summary(p: &Plan) -> String {
+    let mut s = format!(
+        "kvscope plan: {}, {} tokens x {} requests on {} x {}\n\
+         KV per request: {} per-layer, {} uniform [calculated]",
+        p.model_id.as_deref().unwrap_or("<model>"),
+        p.seq_len,
+        p.users,
+        p.gpu_count,
+        p.gpu.name,
+        fmt_bytes(p.per_request_bytes.per_layer),
+        fmt_bytes(p.per_request_bytes.uniform),
+    );
+    match &p.fit {
+        Some(f) => s.push_str(&format!(
+            "\nrequests that fit: {} per-layer, {} uniform [calculated; weights {} input]",
+            f.max_requests.per_layer,
+            f.max_requests.uniform,
+            fmt_bytes(f.weights_bytes.value)
+        )),
+        None => s.push_str("\nfit not checked: no --weights-gib given"),
+    }
+    s
 }

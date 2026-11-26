@@ -5,6 +5,7 @@
 
 pub mod config;
 pub mod dtype;
+pub mod engines;
 pub mod gpu;
 pub mod kv;
 pub mod measured;
