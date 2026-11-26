@@ -1,226 +1,307 @@
 # KVScope: Cross-Architecture KV Cache Profiling
 
-Profiling KV cache dynamics across MHA, GQA, sliding-window, MoE, and SSM architectures.
+Measures how the KV cache grows during LLM inference across different attention
+designs: pure MHA, GQA, local/global and sliding/full hybrids, MoE, and
+SSM/DeltaNet hybrids.
+
+Results come from two runs, each archived on Zenodo as a self-authored preprint
+(not peer-reviewed):
+
+- **V1**: NVIDIA H100 80GB, April 2026, [10.5281/zenodo.19871039](https://doi.org/10.5281/zenodo.19871039)
+- **V2**: NVIDIA H200, May 2026, [10.5281/zenodo.20445398](https://doi.org/10.5281/zenodo.20445398)
 
 ---
 
-## Motivation
+## What it does
 
-KV cache is the dominant memory bottleneck during LLM inference: a 256K-context request on Gemma 4 31B consumes ~15.7 GB of KV cache alone. The seven models profiled here each solve this problem with a fundamentally different architectural approach. KVScope instruments all of them through the same tracing framework to compare how KV cache actually grows during generation, whether unreleased cache accumulates after sequence completion, and which mitigations are effective per architecture.
-
-| Model | KV Cache Strategy | Key Innovation |
-|---|---|---|
-| Pythia-1.4B | Pure MHA (architectural anchor) | Baseline: num_kv_heads == num_attention_heads; no compression |
-| Gemma 4 | GQA + Shared KV + Local/Global interleave | K==V in global layers halves cache; shared KV across layers eliminates redundant projections |
-| GLM-4.7-Flash | MoE + DeepSeek Sparse Attention (DSA) | Expert routing makes KV usage non-deterministic per token; sparse attention reduces compute |
-| gpt-oss-120B | GQA + Sliding/Full hybrid + MoE FFN | Alternating sliding and full-attention layers; extreme bimodality (CV=0.935) |
-| Nemotron | Mamba SSM + Sparse GQA attention | Hybrid state-space + attention; selective quantization for efficiency |
-| LFM2.5-350M | LIV convolution + GQA hybrid | 10 LIV convolution blocks + 6 GQA blocks; departure from pure Transformer architecture |
-| DeepSeek V4 | CSA/HCA hybrid (Compressed Sparse/Heavily Compressed Attention) | 4x/128x sequence compression; 2% KV cache vs traditional GQA; 1M context window |
-
----
-
-## Architecture
+KVScope attaches PyTorch forward hooks to a HuggingFace model's attention
+layers. At each decode step it records the K and V tensor shapes, sizes and
+dtypes per layer, and it samples GPU memory through NVML. Statistical detectors
+then analyse the captured snapshots.
 
 ```mermaid
 flowchart LR
-    Models[7 Model Runners] --> Tracer[KV Cache Tracer<br/>PyTorch hooks]
-    Tracer --> Detectors[Leak Detectors]
-    Tracer --> NVML[NVML Memory Sampler]
-    Detectors --> Results[(JSON Results)]
+    Models[Model runners] --> Tracer[KV Cache Tracer<br/>PyTorch hooks]
+    Tracer --> Detectors[Leak / anomaly detectors]
+    Tracer --> NVML[NVML memory sampler]
+    Detectors --> Results[(JSON results)]
     NVML --> Results
-    Results --> Analysis[Analytical Validation<br/>+ Figures]
+    Results --> Analysis[Analytical validation<br/>+ audit scripts]
 ```
+
+### Models with results
+
+| Model | KV cache design |
+|---|---|
+| Pythia-1.4B | Pure MHA (num_kv_heads == num_attention_heads). The baseline. |
+| Gemma 4 | GQA with interleaved local (sliding-window) and global layers |
+| GLM-4.7-Flash | MoE with DeepSeek Sparse Attention (V1 only) |
+| gpt-oss-120B | GQA, alternating sliding-window and full-attention layers, MoE FFN |
+| Qwen 3.6 | Gated DeltaNet layers + GQA attention layers (V2 only) |
+| Nemotron-H | Mamba SSM + attention; profiled with `use_cache=False`, memory only (V2) |
+| Llama-3.1-70B + Llama-3.2-1B | Speculative decoding, memory only (V2) |
 
 ---
 
 ## Components
 
 ### `src/profiler/kv_tracer.py`
-Forward hooks on attention layers that capture K and V tensor shapes, sizes, dtypes, and GPU memory at each decode step. Hook strategy varies by model: GQA layout for Gemma 4 and gpt-oss, plain DynamicCache for GLM, MLA latent extraction for DeepSeek. Supports both legacy and modern HF cache formats.
+Forward hooks that capture K/V tensor shapes, bytes and dtypes per layer per
+decode step, plus `NVMLSampler` for driver-level GPU memory
+(`device_idx="all"` sums across GPUs). A per-architecture layer classifier
+decides which modules to hook. Classifiers exist for more architectures than
+have results (DeepSeek MLA, DeepSeek V4, LFM2.5, Llama, MiniMax M3). Those
+have not been run on real weights.
 
 ### `src/profiler/leak_detector.py`
-Four detectors that run on the captured snapshot data. Growth curve: linear regression on KV size vs step, flagging super-linear accumulation. Post-EOS: NVML memory before and after generation, detecting unreleased blocks. Fragmentation: gap between `reserved` and `allocated` GPU memory. Layer anomaly: Z-score outlier detection on per-layer cache sizes at final step.
+Seven detectors, run by `KVLeakDetector`:
+
+| Detector | What it checks |
+|---|---|
+| `GrowthCurveDetector` | Linear regression of KV size vs decode step; flags super-linear growth |
+| `PostEOSDetector` | NVML memory before vs after generation; flags memory not released |
+| `FragmentationDetector` | Gap between PyTorch `reserved` and `allocated` memory |
+| `LayerAnomalyDetector` | Z-score outliers in per-layer cache size |
+| `MLACompressionDriftDetector` | Drift in the MLA latent compression ratio (DeepSeek MLA) |
+| `CacheDensityDetector` | Bytes per token per layer at peak |
+| `LayerUniformityDetector` | Coefficient of variation of per-layer KV bytes |
 
 ### `src/profiler/triton_ops.py`
-GPU kernels for per-head L2 norm computation, MLA Frobenius compression ratio, and attention entropy. Each kernel has a pure-PyTorch fallback.
+Triton GPU kernels for per-head L2 norms, the MLA Frobenius compression ratio
+and attention entropy, each with a pure-PyTorch fallback.
 
-### `src/mitigations/mitigations.py`
-Three inference-time strategies benchmarked against baseline: KV quantization (INT8/FP8), H2O heavy-hitter token eviction, and prefix KV sharing via RadixAttention.
+### `src/profiler/adapters.py` and `kvscope` CLI
+A registry with one entry per architecture: KV strategy, model ids and an
+analytical KB/token/layer formula. A unit test keeps it in sync with the tracer's
+classifiers.
 
----
+```bash
+kvscope list                 # all registered architectures
+kvscope info gptoss          # details for one architecture
+```
 
-## Model Coverage Status
+`kvscope info` currently prints an example density computed from placeholder
+config values (8 KV heads, head_dim 128), not the model's real config.
 
-| Model            | H100 V1    | H200 V2    | Status                    |
-|------------------|------------|------------|---------------------------|
-| Pythia-1.4B      | Profiled   | Profiled   | Baseline (MHA anchor)     |
-| Gemma 4          | Profiled   | Profiled   | Production ready          |
-| GLM-4.7-Flash    | Profiled   | Failed     | Float8 conversion blocker |
-| gpt-oss          | Profiled   | Profiled   | Production ready          |
-| Nemotron-H       | -          | Control    | SSM, use_cache=False      |
-| Qwen 3.6         | -          | Profiled   | Added in V2               |
-| LFM2.5-350M      | Failed     | Failed     | CUDA kernel blocker       |
-| DeepSeek V4      | Planned    | Planned    | Not yet attempted         |
+### `src/api/`: black-box API profiler
+Profiles a model through any OpenAI-compatible endpoint: time-to-first-token
+vs input length, inter-token latency vs context length, and
+needle-in-a-haystack recall. **Status: implemented and unit-tested; not yet run
+against a live endpoint. No results are in this repository.**
 
----
+```bash
+export KVSCOPE_API_KEY=...
+kvscope api --provider openrouter --model <model> \
+  latency --lengths 1000,4000,16000 -o results/api/latency.json
+```
 
-## Results Summary
-
-### H100 V1 Run (2026-04-27)
-*NVIDIA H100 80GB HBM3 (driver 590.48.01, CUDA 13.1)*
-
-| Model | KB/tok/layer | Layer CV | Head util % | Peak overhead (MB) | Tok/s | WikiText-103 PPL | Max leak |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Pythia-1.4B (pure MHA baseline) | 8.00 | 0.000 | 100.0 | 98 | 87.1 | 12.43 | 0.335 |
-| Gemma 4 (GQA + local/global) | 14.67 | 0.203 | 100.0 | 8610 | 5055.4 | 827.71 | 0.212 |
-| GLM-4.7-Flash (MoE + DSA) | - | - | 100.0 | 417 | 15.1 | 15.29 | 0.329 |
-| gpt-oss-120B (sliding/full hybrid) | 2.00 | 0.935 | 100.0 | 57 | 14.9 | 317.66 | 0.241 |
-| Nemotron (Mamba SSM + GQA) | - | - | - | - | - | - | - |
-
-### H200 V2 Run (2026-05-23)
-*NVIDIA H200 143,771 MiB HBM3e*
-
-The V2 run expanded the corpus to 20 prompts (15 diverse + 5 stress tests) and validated all architectures at scale. Key V2 JSON artifacts are in `results/h200_v2/`. V1 artifacts remain in `results/h100_v1/` for reproducibility.
-
-Raw JSON data and logs from the V1 run are archived on Zenodo: [10.5281/zenodo.19871039](https://doi.org/10.5281/zenodo.19871039)
+### `src/models/minimax_m3_runner.py` and `experiments/vllm_comparison/`
+An in-process runner for MiniMax M3, with a `--standin` flag for MiniMax-M2,
+since M3 weights were not public when this was written (May 2026). There is
+also a harness that serves a model with vLLM and scrapes its KV-cache usage
+gauge. **Status: implemented; unit tests cover helpers only. Neither has been
+run on real weights, and the M3 layer classifier has not been checked against
+the released modeling code.** GPU provisioning notes are in
+`docs/ibm_cloud_gpu_setup.md`.
 
 ---
 
-## Quick Start
+## Model coverage
+
+| Model | H100 V1 | H200 V2 |
+|---|---|---|
+| Pythia-1.4B | Profiled | Profiled |
+| Gemma 4 | Profiled | Profiled |
+| GLM-4.7-Flash | Profiled | Not profiled (failed to load) |
+| gpt-oss-120B | Profiled | Profiled |
+| Qwen 3.6 | - | Profiled |
+| Nemotron-H | - | Memory only (no KV captured) |
+| Speculative decoding (70B + 1B) | - | Memory only, 8 of 20 prompts |
+| LFM2.5-350M | Failed | No profile file (see note) |
+| DeepSeek V4, MiniMax M3 | - | Not run |
+
+**Note on LFM2.5:** `results/h200_v2/comparative_analysis.json` contains an
+`lfm25` entry, but there is no LFM2.5 profile file behind it and its origin is
+unknown. It is excluded from every number in this README.
+
+---
+
+## Results
+
+### H100 V1 (2026-04-27)
+*NVIDIA H100 80GB HBM3, driver 590.48.01, CUDA 13.1. Source:
+`results/h100_v1/comparative_analysis.json`, `results/h100_v1/perplexity.json`.*
+
+| Model | KB/tok/layer | Layer CV | Peak overhead (MB) | Tok/s | WikiText-103 PPL | Max leak score |
+|---|---:|---:|---:|---:|---:|---:|
+| Pythia-1.4B | 8.00 | 0.000 | 98 | 87.1 | 12.43 | 0.335 |
+| Gemma 4 | 14.67 | 0.203 | 8610 | 5055.4 | 827.71 | 0.212 |
+| GLM-4.7-Flash | - | - | 417 | 15.1 | 15.29 | 0.329 |
+| gpt-oss-120B | 2.00 ¹ | 0.935 | 57 | 14.9 | 317.66 | 0.241 |
+
+¹ Full-attention layers only (mean 8086.4 KB per layer at a mean peak of 4043
+tokens). Sliding-window layers hold about 254 KB each.
+
+### H200 V2 (2026-05-23)
+*NVIDIA H200, 143,771 MiB. 20 prompts (15 diverse + 5 stress tests). Source:
+`results/h200_v2/*_profile.json`, aggregated by `scripts/final_paper_metrics.py`.*
+
+| Model | KB/tok/layer | Layer CV | Layers with KV | Valid prompts |
+|---|---:|---:|---:|---:|
+| Pythia-1.4B | 8.00 | 0.000 | 24 | 20/20 |
+| Gemma 4 | 14.67 | 0.203 | 60 | 20/20 |
+| Qwen 3.6 | 2.00 | 0.000 | 10 | 20/20 |
+| gpt-oss-120B | 1.12 ² | 0.902 | 36 | 20/20 |
+
+² Averaged over all 36 layers, so it is not comparable to the V1 full-layer
+figure. It also divides by *generated* tokens only (2,048), while the cache
+also holds the prompt. Dividing by the full sequence length (about 2,150
+tokens) gives 1.06. The other rows use the full sequence length.
+
+On the first prompt, a gpt-oss full-attention layer holds 4.211 MB and a
+sliding layer 0.248 MB: 80.3 MB in use against 151.6 MB if every layer were
+allocated the full-layer size. That is 47% unused at that sequence length. Since
+the unused fraction is ½ × (1 − window / seq_len) with a 128-token window, it
+should approach 50% at long context (derived, not measured).
+
+Nemotron-H and speculative decoding have NVML memory readings only; no
+per-layer KV was captured.
+
+`scripts/audit_paper.py` recomputes these numbers from the raw JSON and checks
+them against the values quoted in the V2 report.
+
+---
+
+## Quick start
 
 ### Prerequisites
-- NVIDIA GPU with 80GB+ VRAM (H100/A100/H200) for large models
-- HuggingFace account with gated-model access where required
-- Sufficient disk space: ~50GB for model weights, ~2GB for results
+- NVIDIA GPU with 80 GB+ VRAM (H100/A100/H200) for the large models
+- HuggingFace account with access to gated models
+- About 50 GB of disk for weights and 2 GB for results
 
-### 1. Clone the repo
 ```bash
 git clone https://github.com/CosmicAlgo/kvscope.git
 cd kvscope
-```
-
-### 2. Set up environment
-```bash
 pip install -r requirements.txt
 export HF_TOKEN=hf_your_token
-```
 
-### 3. Run experiments
-```bash
-# Run all model profiles:
-bash experiments/run_full_collection.sh
-
-# Or run individual models:
+# One model at a time (these have results in results/):
 bash experiments/run_profiling.sh mha_baseline
 bash experiments/run_profiling.sh gemma4
 bash experiments/run_profiling.sh glm47flash
 bash experiments/run_profiling.sh gptoss
+bash experiments/run_profiling.sh qwen36
 bash experiments/run_profiling.sh nemotron
-bash experiments/run_profiling.sh lfm25
-bash experiments/run_profiling.sh deepseek_v4
+bash experiments/run_spec_decode.sh
+
+# Several in sequence (pass MODELS explicitly):
+MODELS="mha_baseline gemma4 gptoss" bash experiments/run_full_collection.sh
 ```
 
-### 4. View results
+## Tests
+
 ```bash
-# View H200 V2 comparative summary:
-cat results/h200_v2/comparative_analysis.json
-
-# View H100 V1 comparative summary:
-cat results/h100_v1/comparative_analysis.json
+pip install pytest && pytest -q     # unit tests; no GPU or weights needed
 ```
+
+CI (`.github/workflows/ci.yml`) runs ruff and the unit tests on Python 3.10
+and 3.11 with CPU-only PyTorch. GPU code paths are not covered by CI.
 
 ---
 
-## Project Structure
+## Project structure
+
 ```
 kvscope/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                 # CI: linting and testing
+│       └── ci.yml                     # lint + unit tests
 ├── src/
+│   ├── cli.py                         # `kvscope` entry point
 │   ├── profiler/
-│   │   ├── kv_tracer.py           # Core: PyTorch hooks for KV capture
-│   │   ├── leak_detector.py       # Statistical anomaly detection
-│   │   ├── triton_ops.py          # Custom Triton GPU kernels
-│   │   └── json_utils.py          # Safe JSON serialization
+│   │   ├── kv_tracer.py               # PyTorch hooks, NVML sampler
+│   │   ├── leak_detector.py           # 7 detectors
+│   │   ├── adapters.py                # architecture registry + analytical density
+│   │   ├── triton_ops.py              # Triton kernels with PyTorch fallbacks
+│   │   ├── compat.py                  # HF / PyTorch compatibility shims
+│   │   └── json_utils.py              # safe JSON serialisation
 │   ├── models/
-│   │   ├── mha_baseline_runner.py # Pythia-1.4B (MHA anchor)
-│   │   ├── gemma4_runner.py       # Gemma 4 profiled inference
-│   │   ├── glm47flash_runner.py   # GLM-4.7-Flash (MoE + DSA)
-│   │   ├── gptoss_runner.py       # gpt-oss-120B profiled inference
-│   │   ├── nemotron_runner.py     # Nemotron profiled inference
-│   │   ├── lfm25_runner.py        # LFM2.5-350M profiled inference
-│   │   ├── deepseek_v4_runner.py  # DeepSeek V4 profiled inference
-│   │   └── spec_decode_runner.py  # Speculative decoding baseline
-│   ├── mitigations/
-│   │   ├── mitigations.py         # Quantization, H2O, prefix sharing
-│   │   └── h2o_runtime.py         # H2O eviction reference impl
-│   └── distributed/
-│       └── kv_offload.py          # CPU/GPU KV offload utilities
+│   │   ├── mha_baseline_runner.py     # Pythia-1.4B
+│   │   ├── gemma4_runner.py
+│   │   ├── glm47flash_runner.py
+│   │   ├── qwen36_runner.py
+│   │   ├── nemotron_runner.py
+│   │   ├── lfm25_runner.py
+│   │   ├── llama_runner.py
+│   │   ├── spec_decode_runner.py
+│   │   └── minimax_m3_runner.py       # not yet run
+│   └── api/                           # black-box API profiler (not yet run)
 ├── experiments/
 │   ├── configs/
-│   │   ├── prompts_advanced.json  # Curated 20-prompt corpus
-│   │   └── experiment_config.yaml # Run parameters
-│   ├── run_profiling.sh           # Individual model runner
-│   ├── run_full_collection.sh     # Master runner for all models
-│   ├── run_longctx_sweep.sh       # Long-context sweep
-│   └── run_spec_decode.sh         # Speculative decode benchmark
+│   │   ├── experiment_config.yaml
+│   │   └── prompts_advanced.json
+│   ├── run_profiling.sh               # per-model phases (gpt-oss is inline here)
+│   ├── run_full_collection.sh
+│   ├── run_longctx_sweep.sh
+│   ├── run_spec_decode.sh
+│   └── vllm_comparison/               # vLLM serving harness (not yet run)
 ├── scripts/
-│   ├── analytical_validation.py   # Analytical vs empirical checks
-│   ├── analyze_v2_final.py      # V2 result aggregation
-│   └── compute_posteos.py       # Post-EOS score computation
+│   ├── analytical_validation.py
+│   ├── final_paper_metrics.py         # V2 aggregate table
+│   └── audit_paper.py                 # recompute report numbers from raw JSON
 ├── results/
-│   ├── h200_v2/                   # H200 V2 run JSON artifacts
-│   └── h100_v1/                   # H100 V1 run JSON artifacts
-├── paper/
-│   └── kvscope_h200_v2.tex        # LaTeX paper source
+│   ├── h100_v1/
+│   └── h200_v2/
+├── results_local/
+│   └── longctx_sweep_pythia.json
+├── docs/
+│   └── ibm_cloud_gpu_setup.md
+├── tests/
 ├── requirements.txt
 ├── pyproject.toml
 └── LICENSE
 ```
 
+`scripts/` contains further one-off analysis scripts not listed here.
+
 ---
 
-## Methodology Notes
+## Methodology notes
 
-### 1. MHA baseline anchor
+### MHA baseline
+Every run includes `EleutherAI/pythia-1.4b-deduped`: 24 layers, 16 attention
+heads, head_dim 128, num_kv_heads == num_attention_heads. KV per token per
+layer in bf16 = 16 × 128 × 2 (K and V) × 2 bytes = 8,192 B = 8.00 KB, which
+matches the measured value. Other models' densities are compared against this
+baseline.
 
-Every run includes a **pure multi-head-attention** baseline using `EleutherAI/pythia-1.4b-deduped`:
+### Perplexity
+WikiText-103 test split, sliding window (context 1024, stride 512, 64 chunks),
+computed by `scripts/perplexity_local.py`.
 
-- 24 layers, 16 attention heads, head_dim 128, **num_kv_heads == num_attention_heads**
-- Per-token-per-layer KV (bf16) = 16 x 128 x 2 x 2 = 8,192 B = 8.0 KB
-- Every other model's lower density is *exactly* its GQA/MQA/MLA win
-
-### 2. Perplexity evaluation
-
-Perplexity is computed on the WikiText-103 test split using the standard sliding-window protocol (Merity et al., 2017). This number is comparable across models and mitigation tiers.
-
-### 3. Sequence-length scaling
-
-Throughput-vs-decode-position curves are derived from per-step wall times recorded by `KVCacheTracer.report()` under `decode_timing.step_wall_times_ms`.
+### Sequence-length scaling
+Per-step wall times are recorded by `KVCacheTracer.report()` under
+`decode_timing.step_wall_times_ms`.
 
 ---
 
 ## References
 
-- [Gemma 4 Technical Report](https://ai.google.dev/gemma/docs/core), Google, 2025
-- [GLM-4 Technical Report](https://arxiv.org/abs/2106.01274), Zeng et al., 2021
-- [DeepSeek Sparse Attention](https://arxiv.org/abs/2312.08874), DeepSeek AI, 2023
-- [H2O: Heavy-Hitter Oracle](https://arxiv.org/abs/2306.14048), Zhang et al., 2023
-- [PagedAttention (vLLM)](https://arxiv.org/abs/2309.06180), Kwon et al., 2023
-- [GQA: Training Generalized Multi-Query Transformer Models](https://arxiv.org/abs/2305.13245), Ainslie et al., 2023
-- [Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling](https://arxiv.org/abs/2304.01373), Biderman et al., 2023
+- Kwon et al., 2023. [Efficient Memory Management for LLM Serving with PagedAttention](https://arxiv.org/abs/2309.06180)
+- Ainslie et al., 2023. [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/abs/2305.13245)
+- Biderman et al., 2023. [Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling](https://arxiv.org/abs/2304.01373)
 
 ---
 
 ## Citation
 
-If you use KVScope, please cite:
-
-Surya, R. (2026). KVScope: Profiling Cross-Architecture KV-Cache
-Dynamics on NVIDIA H100. Zenodo.
+Surya, R. (2026). *KVScope: Profiling Cross-Architecture KV-Cache Dynamics on
+NVIDIA H100* (Version 1.0.0) [Preprint]. Zenodo.
 https://doi.org/10.5281/zenodo.19871039
+
+Surya, R. (2026). *KVScope V2: Cross-Architecture KV-Cache Profiling on NVIDIA
+H200* (Version 2.0.0) [Preprint]. Zenodo.
+https://doi.org/10.5281/zenodo.20445398
 
 ---
 
@@ -228,9 +309,6 @@ https://doi.org/10.5281/zenodo.19871039
 
 MIT
 
----
-
 ## Author
 
-Rahul Surya
-MSc HPC with Data Science, EPCC, University of Edinburgh
+Rahul Surya, MSc HPC with Data Science, EPCC, University of Edinburgh
