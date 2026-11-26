@@ -179,11 +179,12 @@ _ADAPTERS_LIST = [
         standin_models=("MiniMaxAI/MiniMax-M2",),
         supports_long_context=True,
         max_context=1_000_000,
-        weights_public=False,  # open weights committed ~2026-06-10; API live now
+        weights_public=False,  # as of May 2026; not re-checked since
         notes=(
             "MiniMax Sparse Attention: partitions KV into blocks read once "
             "('KV outer gather Q'), full-precision K/V, 1M context, native "
-            "multimodal. Weights pending — use the M2 stand-in for code-path tests."
+            "multimodal. Weights were not public in May 2026; use the M2 stand-in "
+            "for code-path tests."
         ),
     ),
 ]

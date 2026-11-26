@@ -592,6 +592,58 @@ run_deepseek_v4() {
   checkpoint_done "$tag"
 }
 
+run_minimax_m3() {
+  local tag="minimax_m3_profile"
+  if is_done "$tag"; then
+    echo "[SKIP] $tag already complete"
+    return
+  fi
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo " EXPERIMENT: MiniMax M3 (MSA — MiniMax Sparse Attention)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # Prefer real M3 weights when present; otherwise fall back to the MiniMax-M2
+  # stand-in (same MoE family). M3 weights were not public when this was
+  # written (May 2026).
+  local m3_args=()
+  local M3_PATH="$MODELS_DIR/minimax_m3"
+  local M2_PATH="$MODELS_DIR/minimax_m2"
+
+  if [[ -d "$M3_PATH" && -n "$(ls -A "$M3_PATH" 2>/dev/null)" ]]; then
+    m3_args+=(--model-path "$M3_PATH")
+  elif [[ -d "$M2_PATH" && -n "$(ls -A "$M2_PATH" 2>/dev/null)" ]]; then
+    echo "[*] M3 weights not found — using MiniMax-M2 stand-in for code-path test."
+    m3_args+=(--model-path "$M2_PATH" --standin)
+  else
+    echo "[!] Neither M3 nor M2 weights found."
+    echo "    M3 (if the weights are public):"
+    echo "      python3 -c \"from huggingface_hub import snapshot_download; \\"
+    echo "        snapshot_download('MiniMaxAI/MiniMax-M3', local_dir='$M3_PATH')\""
+    echo "    M2 stand-in:"
+    echo "      python3 -c \"from huggingface_hub import snapshot_download; \\"
+    echo "        snapshot_download('MiniMaxAI/MiniMax-M2', local_dir='$M2_PATH')\""
+    echo "    Skipping MiniMax M3 phase."
+    return 0
+  fi
+
+  # ~200-400B MoE: load in 8-bit on a single 141GB H200 / <200GB box.
+  if [[ "$VRAM_GB" -lt 200 ]]; then
+    m3_args+=(--load-in-8bit)
+    echo "[*] <200GB VRAM detected — enabling 8-bit weight loading for MiniMax M3"
+  fi
+
+  python3 -m src.models.minimax_m3_runner \
+    "${m3_args[@]}" \
+    --prompts-file "$PROMPTS_FILE" \
+    --max-tokens "$MAX_TOKENS" \
+    --capture-every "$CAPTURE_EVERY" \
+    --output "$RESULTS_DIR/minimax_m3_profile.json"
+
+  checkpoint_done "$tag"
+}
+
 run_mitigations() {
   local tag="mitigations_benchmark"
   if is_done "$tag"; then
@@ -657,7 +709,7 @@ models = {}
 # All known model families. Files that don't exist are silently skipped, so
 # this works whether you've profiled 3 or 6 of them.
 # 'mha_baseline' uses a slightly different filename (matches the runner output).
-MODEL_FAMILIES = ['mha_baseline', 'gemma4', 'glm47flash', 'deepseek', 'gptoss', 'nemotron', 'lfm25', 'deepseek_v4']
+MODEL_FAMILIES = ['mha_baseline', 'gemma4', 'glm47flash', 'deepseek', 'gptoss', 'nemotron', 'lfm25', 'deepseek_v4', 'minimax_m3']
 for name in MODEL_FAMILIES:
     path = os.path.join(results_dir, f'{name}_profile.json')
     if os.path.exists(path):
@@ -680,6 +732,7 @@ comparison = {
         'nemotron':     'Nemotron-H: Mamba SSM majority + sparse GQA attention',
         'lfm25':        'LFM2.5: LIV convolution + GQA hybrid (10 LIV blocks + 6 GQA blocks)',
         'deepseek_v4':  'DeepSeek V4: CSA/HCA hybrid (4x/128x compression + 2% KV cache)',
+        'minimax_m3':   'MiniMax M3: MSA block-sparse attention (uncompressed K/V, 1M context)',
     },
     'per_model': {},
 }
@@ -1039,6 +1092,8 @@ case "$PHASE" in
   deepseek)      run_deepseek ;;
   deepseek_v4)   run_deepseek_v4 ;;
   dsv4)          run_deepseek_v4 ;;       # alias
+  minimax_m3)    run_minimax_m3 ;;
+  m3)            run_minimax_m3 ;;        # alias
   glm47flash)         run_glm47flash ;;
   gptoss)        run_gptoss ;;
   nemotron)      run_nemotron ;;
@@ -1091,6 +1146,7 @@ case "$PHASE" in
     echo "  glm47flash     Profile GLM-4.7-Flash (MoE+DSA)"
     echo "  gptoss         Profile gpt-oss-120b (sliding/full hybrid + MoE)"
     echo "  deepseek       Profile DeepSeek (MLA) — only if weights present"
+    echo "  minimax_m3     Profile MiniMax M3 (MSA) — M3 weights or M2 stand-in"
     echo "  nemotron       Profile Nemotron-H (Mamba+attn) — only if weights present"
     echo "  lfm25          Profile LFM 2.5 (Liquid Foundation Model)"
     echo "  qwen3          Profile Qwen3-32B (dense GQA) — only if weights present"

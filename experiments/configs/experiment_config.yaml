@@ -78,6 +78,50 @@ deepseek_v4:
     measure_head_utilization: true
     measure_expert_routing: true    # Track which experts fire
 
+# ── MiniMax M3 ────────────────────────────────────────────────────
+# MSA (MiniMax Sparse Attention): block-sparse reads over uncompressed K/V,
+# 1M context, MoE. Weights were not public when this was written (May 2026);
+# the MiniMax-M2 stand-in (same MoE family) is used for code-path tests.
+minimax_m3:
+  name: "MiniMax M3"
+  architecture: "MSA (MiniMax Sparse Attention) + MoE"
+  kv_paradigm: "MSA"
+  weights_public: false   # as of May 2026; not re-checked since
+
+  variants:
+    # Stand-in (M2, same MoE family).
+    standin:
+      model_path: "MiniMaxAI/MiniMax-M2"
+      is_standin: true
+      quantization: "8bit"
+      max_tokens: 256
+      batch_size: 1
+      notes: "Code-path validation without M3 weights."
+
+    # H200 (141GB) — M3 in 8-bit weights, KV cache on GPU.
+    h200:
+      model_path: "MiniMaxAI/MiniMax-M3"
+      quantization: "8bit"
+      max_tokens: 256
+      batch_size: 1
+      notes: "~200-400B MoE; 8-bit weights fit a single 141GB H200."
+
+    # Multi-GPU (4x H100/H200) — long-context MSA at scale.
+    multi_gpu:
+      model_path: "MiniMaxAI/MiniMax-M3"
+      quantization: "none"
+      tensor_parallel: 4
+      max_tokens: 256
+      batch_size: 1
+      notes: "Tensor-parallel across 4 GPUs to exercise MSA toward 1M context."
+
+  profiling:
+    capture_every_n_steps: 8
+    enable_triton_kernels: true
+    measure_head_utilization: true
+    measure_expert_routing: true    # MoE routing
+    multi_gpu_nvml: true            # aggregate VRAM across all GPUs
+
 # ── GLM 5.1 ──────────────────────────────────────────────────────
 glm51:
   name: "GLM 5.1 (GLM-4.7-Flash proxy)"
