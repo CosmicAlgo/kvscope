@@ -18,7 +18,7 @@ huggingface_hub
 datasets>=2.14.0
 
 # GPU profiling
-pynvml
+nvidia-ml-py   # provides `import pynvml` (the old `pynvml` package is deprecated)
 triton>=2.1.0
 
 # Scientific computing

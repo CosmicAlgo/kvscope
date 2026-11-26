@@ -25,7 +25,7 @@ jobs:
           # CPU-only torch keeps CI fast; the profiler imports torch at module load.
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           # transformers is needed by tests/test_m3_runner.py (skipped without it).
-          pip install numpy scipy pandas pynvml transformers pytest ruff
+          pip install numpy scipy pandas nvidia-ml-py transformers pytest ruff
 
       - name: "Lint new modules (pyflakes: unused imports, undefined names, syntax)"
         run: >-

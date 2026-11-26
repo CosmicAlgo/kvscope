@@ -45,7 +45,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu124
 
 # KVScope core + serving + profiling extras:
 pip install -e '.[triton,vllm,observability]'
-pip install pynvml         # required by NVMLSampler
+pip install nvidia-ml-py   # provides `import pynvml`, required by NVMLSampler
 ```
 
 ## 4. Hugging Face auth + weights cache

@@ -118,7 +118,7 @@ class NVMLSampler:
         if pynvml is None:
             raise RuntimeError(
                 "NVMLSampler requires the 'pynvml' package (and an NVIDIA GPU). "
-                "Install it with `pip install pynvml`."
+                "Install it with `pip install nvidia-ml-py`."
             )
         pynvml.nvmlInit()
         self.aggregate = (device_idx == "all")
