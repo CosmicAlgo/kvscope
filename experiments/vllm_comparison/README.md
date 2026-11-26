@@ -10,7 +10,8 @@ Not yet run on a GPU; no results from this harness are in the repository.
 
 - vLLM (PagedAttention) is a widely used serving engine, and it can reach long
   contexts that eager `transformers.generate` cannot.
-- vLLM exposes a Prometheus `/metrics` endpoint. `vllm:gpu_cache_usage_perc` is
+- vLLM exposes a Prometheus `/metrics` endpoint. `vllm:kv_cache_usage_perc`
+  (`vllm:gpu_cache_usage_perc` in older versions; the scraper reads either) is
   the closest **server-side KV-cache signal** — the fraction of KV blocks in use.
 - Pairing that gauge with black-box latency curves gives an MSA characterisation
   without needing in-process tensors.
@@ -21,7 +22,7 @@ Not yet run on a GPU; no results from this harness are in the repository.
 |---|---|---|
 | `*_latency.json` | `kvscope api latency` | TTFT vs input length (prefill), ITL vs context (decode), scaling exponents |
 | `*_needle.json` | `kvscope api needle` | effective-context recall across depth × length |
-| `*_kv_timeseries.json` | `scrape_vllm_metrics.py` | KV-cache usage %, running/waiting reqs, TTFT/TPOT averages over time |
+| `*_kv_timeseries.json` | `scrape_vllm_metrics.py` | KV-cache usage, running/waiting requests, and per-interval TTFT/TPOT averages, token rates and prefix-cache hit rate |
 
 ## Run it
 
