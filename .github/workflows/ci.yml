@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only torch keeps CI fast; the profiler imports torch at module load.
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # transformers is needed by tests/test_m3_runner.py (skipped without it).
+          pip install numpy scipy pandas pynvml transformers pytest ruff
+
+      - name: "Lint new modules (pyflakes: unused imports, undefined names, syntax)"
+        run: >-
+          ruff check --select F,E9
+          src/profiler/adapters.py src/cli.py src/api
+          src/models/minimax_m3_runner.py tests
+
+      - name: Run tests
+        run: pytest -q
