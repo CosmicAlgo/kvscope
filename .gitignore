@@ -43,5 +43,5 @@ results/**/.checkpoint
 *.tar.gz
 .claude
 
-# Paper source (already submitted to Zenodo separately)
+# Paper source: kept private and untracked. Archived versions are on Zenodo (see README).
 paper/
