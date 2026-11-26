@@ -2,8 +2,8 @@
 """Final paper metrics — correct KV density from actual tensor data."""
 import json, os, statistics
 
-D = os.path.join(os.path.dirname(__file__), "..", "final_data", "results_v2")
-CONFIGS = os.path.join(os.path.dirname(__file__), "..", "configs_check", "results_v2", "model_configs")
+D = os.path.join(os.path.dirname(__file__), "..", "results", "h200_v2")
+CONFIGS = os.path.join(os.path.dirname(__file__), "..", "configs_check", "h200_v2", "model_configs")
 OUT = os.path.join(os.path.dirname(__file__), "..", "paper", "figures")
 
 def load_json(path):
