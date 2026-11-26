@@ -1,11 +1,20 @@
-# KVScope: Cross-Architecture KV Cache Profiling
+# KVScope: KV-cache planning and profiling for LLM inference
 
-Measures how the KV cache grows during LLM inference across different attention
-designs: pure MHA, GQA, local/global and sliding/full hybrids, MoE, and
-SSM/DeltaNet hybrids.
+KVScope plans and measures the KV-cache memory of LLM inference. It has two
+parts today:
 
-Results come from two runs, each archived on Zenodo as a self-authored preprint
-(not peer-reviewed):
+- **`kvscope plan`** (Rust, no GPU needed): reads a model's Hugging Face
+  `config.json` and works out KV memory for a context length and number of
+  users, how many requests fit on a GPU, the memory a uniform allocator wastes,
+  and settings for vLLM, SGLang, llama.cpp, Ollama and Slurm. Every number is
+  labelled calculated, measured, assumed or input. See
+  [Capacity planner](#capacity-planner-kvscope-plan).
+- **A profiler** (Python, Hugging Face transformers): PyTorch hooks record
+  each layer's K/V tensors during generation, and NVML records GPU memory.
+
+The profiler's measurements cover pure MHA, GQA, local/global and
+sliding/full hybrids, MoE, MLA and SSM/DeltaNet hybrids. They come from two
+runs, each archived on Zenodo as a self-authored preprint (not peer-reviewed):
 
 - **V1**: NVIDIA H100 80GB, April 2026, [10.5281/zenodo.19871039](https://doi.org/10.5281/zenodo.19871039)
 - **V2**: NVIDIA H200, May 2026, [10.5281/zenodo.20445398](https://doi.org/10.5281/zenodo.20445398)
@@ -225,14 +234,113 @@ bash experiments/run_spec_decode.sh
 MODELS="mha_baseline gemma4 gptoss" bash experiments/run_full_collection.sh
 ```
 
+## Capacity planner (`kvscope plan`)
+
+Build it with a current stable Rust toolchain (tested with Rust 1.91):
+
+```bash
+cd core
+cargo build --release        # binary: core/target/release/kvscope
+```
+
+Example: Pythia-1.4B, 8 users at 2048 tokens on an 8 GB laptop GPU. The
+weights figure is the measured baseline from the H100 V1 run (3,885 MiB,
+which includes the CUDA context, hence `--overhead-gib 0`):
+
+```bash
+kvscope plan --config core/tests/fixtures/pythia-1.4b-deduped.json \
+  --model EleutherAI/pythia-1.4b-deduped --context 2k --users 8 \
+  --gpu RTX4060-8GB --weights-gib 3.79 --overhead-gib 0
+```
+
+```
+  KV cache                        per-layer        uniform
+  one request                    384.00 MiB     384.00 MiB   [calculated]
+  8 requests                       3.00 GiB       3.00 GiB   [calculated]
+  uniform allocation wastes 0.0% of its KV memory [calculated]
+
+  Fit: 8.00 GiB x 0.90 - weights 3.79 GiB [input] - overhead 0 B [input]
+      utilisation 0.90 [assumed]
+  memory left for KV: 3.41 GiB [calculated]
+  requests that fit                       9              9   [calculated]
+  8 requests fit?                       yes            yes   [calculated]
+```
+
+The full output also lists KVScope's measurements for the model (GPU, date,
+engine, source file), engine settings, and notes. `--json` prints the plan as
+JSON; `--sbatch` prints a Slurm batch script that starts vLLM; `kvscope gpus`
+lists the GPU sizes it knows.
+
+**What it computes.** From `config.json` it builds one entry per layer: full
+attention, sliding window (with its window), MLA, or no KV (linear attention
+such as Gated DeltaNet, Mamba, MLP, shared KV). KV per token per layer is
+KV heads × (K dim + V dim) × bytes per value; MLA stores
+`kv_lora_rank + qk_rope_head_dim` values per token (`--mla expanded` counts full
+K/V instead, as Hugging Face transformers stored it). It compares two
+allocation policies:
+
+- **per-layer**: each layer holds what it needs; a sliding layer holds one window;
+- **uniform**: every KV layer gets the size of the largest layer at the full length.
+
+For gpt-oss-120b (18 full and 18 sliding layers, window 128) the uniform waste
+is ½ × (1 − 128 / sequence length): 47% at the profiled length, 49.8% at 32k.
+
+**Labels.** `[calculated]` is derived from the config and inputs. `[measured]`
+comes from a KVScope run, with its source file (`core/data/measurements.json`;
+a test re-reads every value from that file). `[assumed]` is a default you did
+not set: 0.90 utilisation, 1 GiB overhead per GPU, bf16 when the config gives
+no dtype, and nominal sizes for GPUs that were not measured. `[input]` is what
+you passed.
+
+**Checked against measurements** (`core/tests/acceptance.rs`): Pythia-1.4B
+8.00 KiB/token/layer; Gemma 4 31B 14.67; Qwen3.6-35B-A3B 2.00 and 4.242 MiB per
+layer; gpt-oss-120b 4.211 MiB full layers and 80.3 MiB in use against 151.6 MiB
+uniform (47%) at the length implied by the measured full layer. Two
+differences from Hugging Face transformers are recorded there: it kept 127 of
+gpt-oss's 128 window tokens, and it did not trim Gemma 4's sliding layers to
+their window.
+
+**Limits.** No weight-size estimate yet: pass `--weights-gib` to see what
+fits. Activation memory is a flat assumption. Engine settings use flags
+checked against each engine's documentation in November 2026; engines'
+own allocators (for example vLLM's hybrid KV cache manager) are not modelled
+beyond a note. Linear-attention and Mamba state is not counted.
+
+The Python package also installs a command named `kvscope` (`list`, `info`,
+`api`). Until the two are merged, run the planner by the full path of the
+binary Cargo builds (under core/target/release/), or with
+`cargo run --release -- plan ...` from the core directory.
+
+---
+
+## Related tools
+
+- Web KV-cache calculators compute KV size from a model's dimensions.
+- NVIDIA [AIConfigurator](https://github.com/ai-dynamo/aiconfigurator)
+  (Apache-2.0) optimises deployment configurations for NVIDIA Dynamo; its
+  README describes it as moving to maintenance-only in favour of AISimulate.
+- NVIDIA Dynamo and llm-d route requests across serving replicas using
+  KV-cache state; llm-d is built for Kubernetes.
+- Li et al., "The KV Cache Working Set: Online Capacity Planning for LLM
+  Inference Systems", arXiv:2609.27746 (2026).
+
+KVScope's aim is a planner that works for any engine and GPU, is checked
+against measured runs, runs on Slurm as well as locally, and keeps data on
+the user's machine. Today it has the planner and the profiler described above;
+a collection agent, a dashboard and a CI memory gate are planned, not built.
+
+---
+
 ## Tests
 
 ```bash
-pip install pytest && pytest -q     # unit tests; no GPU or weights needed
+pip install pytest && pytest -q     # Python unit tests; no GPU or weights needed
+cd core && cargo test               # Rust planner tests
 ```
 
-CI (`.github/workflows/ci.yml`) runs ruff and the unit tests on Python 3.10
-and 3.11 with CPU-only PyTorch. GPU code paths are not covered by CI.
+CI (`.github/workflows/ci.yml`) runs ruff and the Python unit tests on Python
+3.10 and 3.11 with CPU-only PyTorch, and rustfmt, clippy and the Rust tests
+for the planner. GPU code paths are not covered by CI.
 
 ---
 
@@ -242,7 +350,22 @@ and 3.11 with CPU-only PyTorch. GPU code paths are not covered by CI.
 kvscope/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                     # lint + unit tests
+│       └── ci.yml                     # lint + unit tests (Python and Rust)
+├── core/                              # Rust: `kvscope plan`
+│   ├── Cargo.toml
+│   ├── src/
+│   │   ├── config.rs                  # config.json -> per-layer KV layout
+│   │   ├── kv.rs                      # per-layer vs uniform KV arithmetic
+│   │   ├── plan.rs                    # fit, labels
+│   │   ├── engines.rs                 # vLLM / SGLang / llama.cpp / Ollama / Slurm
+│   │   ├── gpu.rs                     # GPU sizes (measured or nominal)
+│   │   ├── measured.rs                # embedded measurements
+│   │   └── main.rs                    # command-line program
+│   ├── data/
+│   │   └── measurements.json          # values from results/, with sources
+│   └── tests/
+│       ├── acceptance.rs              # planner vs measured runs
+│       └── fixtures/                  # KV fields of official config.json files
 ├── src/
 │   ├── cli.py                         # `kvscope` entry point
 │   ├── profiler/
