@@ -28,9 +28,17 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pynvml
 import torch
 import torch.nn as nn
+
+# pynvml is only needed by NVMLSampler (i.e. when actually profiling on a GPU).
+# Import it lazily so the classifiers, adapters, KVSnapshot, and the `kvscope`
+# CLI all work on machines without the NVIDIA management library installed
+# (CI, laptops, CPU-only boxes).
+try:
+    import pynvml
+except Exception:  # pragma: no cover - environment dependent
+    pynvml = None
 
 # ─── Data Structures ──────────────────────────────────────────────────────────
 
@@ -97,34 +105,62 @@ class LayerProfile:
 
 class NVMLSampler:
     """Polls GPU memory via NVML. More accurate than torch.cuda.memory_allocated()
-    because it sees the full driver-level allocation, including fragmentation."""
+    because it sees the full driver-level allocation, including fragmentation.
 
-    def __init__(self, device_idx: int = 0):
+    Multi-GPU: pass ``device_idx="all"`` to aggregate (sum) memory across every
+    visible GPU. This is required for tensor-parallel models like MiniMax M3
+    (~200-400B MoE), where KV cache and weights are sharded across devices and a
+    single-device reading would undercount peak VRAM. The default (``0``)
+    preserves the original single-GPU behaviour.
+    """
+
+    def __init__(self, device_idx=0):
+        if pynvml is None:
+            raise RuntimeError(
+                "NVMLSampler requires the 'pynvml' package (and an NVIDIA GPU). "
+                "Install it with `pip install pynvml`."
+            )
         pynvml.nvmlInit()
-        self.handle = pynvml.nvmlDeviceGetHandleByIndex(device_idx)
+        self.aggregate = (device_idx == "all")
+        if self.aggregate:
+            n = pynvml.nvmlDeviceGetCount()
+            self.handles = [pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(n)]
+        else:
+            self.handles = [pynvml.nvmlDeviceGetHandleByIndex(device_idx)]
+        self.handle = self.handles[0]  # back-compat
         self._baseline_used = 0
 
+    def _mem(self) -> Dict[str, float]:
+        """Summed memory info (MB) across the configured device(s)."""
+        total = used = free = 0
+        for h in self.handles:
+            info = pynvml.nvmlDeviceGetMemoryInfo(h)
+            total += info.total
+            used += info.used
+            free += info.free
+        return {"total": total / 1e6, "used": used / 1e6, "free": free / 1e6}
+
     def sample(self) -> Dict[str, float]:
-        info = pynvml.nvmlDeviceGetMemoryInfo(self.handle)
+        m = self._mem()
         return {
-            "total_mb": info.total / 1e6,
-            "used_mb": info.used / 1e6,
-            "free_mb": info.free / 1e6,
+            "total_mb": m["total"],
+            "used_mb": m["used"],
+            "free_mb": m["free"],
             # torch-level allocation (subset of NVML used)
             "torch_alloc_mb": torch.cuda.memory_allocated() / 1e6,
             "torch_reserved_mb": torch.cuda.memory_reserved() / 1e6,
             # Fragmentation = reserved - allocated (memory held but not used)
             "fragmentation_mb": (torch.cuda.memory_reserved() - torch.cuda.memory_allocated()) / 1e6,
+            "n_devices": len(self.handles),
         }
 
     def set_baseline(self):
         """Call after model weights loaded but before generation starts."""
-        info = pynvml.nvmlDeviceGetMemoryInfo(self.handle)
-        self._baseline_used = info.used / 1e6
+        self._baseline_used = self._mem()["used"]
 
     def kv_overhead_mb(self) -> float:
         """VRAM used above the baseline (≈ KV cache + activations)."""
-        current = pynvml.nvmlDeviceGetMemoryInfo(self.handle).used / 1e6
+        current = self._mem()["used"]
         return max(0.0, current - self._baseline_used)
 
     def __del__(self):
@@ -313,7 +349,8 @@ def classify_qwen36_layer(name: str, module: nn.Module) -> Optional[str]:
             break
 
     # Check module class name to determine if it's DeltaNet or Attention
-    
+    cls_name = type(module).__name__
+
     # DeltaNet layers use linear attention (no traditional KV cache)
     if "DeltaNet" in cls_name or "linear_attn" in name.lower():
         return "deltanet"  # Linear attention, minimal KV-like state
@@ -431,6 +468,86 @@ def classify_nemotron_layer(name: str, module: nn.Module) -> Optional[str]:
     return "dense"
 
 
+def classify_minimax_m3_layer(name: str, module: nn.Module) -> Optional[str]:
+    """
+    MiniMax M3 layer classifier — MSA (MiniMax Sparse Attention).
+
+    PROVISIONAL: M3 weights + technical report are not public yet (open weights
+    committed ~June 10, 2026). MSA partitions the KV cache into blocks and reads
+    each block once ("KV outer gather Q"); unlike MLA it keeps K/V uncompressed,
+    so the cached tensors should appear as standard ``[B, H, S, D]`` and the
+    existing hook can capture them — what differs is *which* blocks are attended.
+
+    This classifier is intentionally defensive so it also works against a
+    MiniMax-M2 stand-in (same MoE family, full attention) for code-path testing:
+
+      1. ``config.layer_types[idx]``           ← ground truth when present
+      2. per-module ``attention_type`` attr    ← e.g. 'msa' / 'sparse' / 'full'
+      3. presence of MSA block attributes      ← 'sparse'/'block' in attrs → msa
+      4. default → 'msa'                        ← M3 applies MSA on all layers
+
+    Finalize the attribute names below once the modeling file ships.
+    """
+    if not any(k in name for k in ["attention", "attn", "self_attn"]):
+        return None
+
+    # 1. config.layer_types[idx] ground truth (same convention as gpt-oss / dsv4)
+    parts = [p for p in name.split(".") if p.isdigit()]
+    layer_idx = int(parts[0]) if parts else None
+    if layer_idx is not None:
+        layer_types = _read_layer_types_from_config(module)
+        if layer_types and 0 <= layer_idx < len(layer_types):
+            lt = str(layer_types[layer_idx]).lower()
+            if "full" in lt or "dense" in lt:
+                return "full"
+            if "msa" in lt or "sparse" in lt or "linear" in lt:
+                return "msa"
+
+    # 2. Per-module attribute (modeling-file ground truth, once published)
+    for attr in ("attention_type", "layer_type", "attn_type"):
+        v = getattr(module, attr, None)
+        if isinstance(v, str):
+            s = v.lower()
+            if "full" in s or "dense" in s:
+                return "full"
+            if "msa" in s or "sparse" in s or "linear" in s:
+                return "msa"
+
+    # 3. Heuristic: any MSA-style block/sparsity attribute present → msa
+    if any(hasattr(module, a) for a in (
+        "msa_block_size", "block_size", "sparse_block_size", "kv_block_size",
+        "num_kv_blocks", "msa_topk", "sparse_topk",
+    )):
+        return "msa"
+
+    # 4. Default: M3 runs MSA on every attention layer; stand-in models still
+    #    get captured as a generic attention block under this label.
+    return "msa"
+
+
+# ─── Classifier Registry ──────────────────────────────────────────────────────
+# Single source of truth mapping ``model_type`` → layer classifier. Adding a new
+# architecture means adding one entry here (plus a metadata entry in
+# ``src/profiler/adapters.py``; a unit test enforces the two stay in sync).
+
+LAYER_CLASSIFIERS = {
+    "gemma4": classify_gemma4_layer,
+    "glm51": classify_glm_layer,
+    "deepseek": classify_deepseek_layer,
+    "gptoss": classify_gptoss_layer,
+    "nemotron": classify_nemotron_layer,
+    "nemotron_h": classify_nemotron_layer,   # Nemotron-H uses same classifier
+    "mha": classify_mha_layer,
+    "lfm25": classify_lfm25_layer,
+    "qwen3": classify_qwen3_layer,
+    "qwen36": classify_qwen36_layer,
+    "llama": classify_llama_layer,
+    "llama4": classify_llama_layer,          # Llama 4 == Llama 3 attention structure
+    "deepseek_v4": classify_deepseek_v4_layer,
+    "minimax_m3": classify_minimax_m3_layer,  # MSA (provisional until weights ship)
+}
+
+
 # ─── Main Tracer ──────────────────────────────────────────────────────────────
 
 class KVCacheTracer:
@@ -444,7 +561,7 @@ class KVCacheTracer:
       - "deepseek"  : MLA (Multi-Head Latent Attention) compressed KV
     """
 
-    MODEL_TYPES = {"gemma4", "glm51", "deepseek", "gptoss", "nemotron", "nemotron_h", "mha", "lfm25", "deepseek_v4", "qwen3", "qwen36", "llama", "llama4"}
+    MODEL_TYPES = frozenset(LAYER_CLASSIFIERS)
 
     def __init__(
         self,
@@ -477,22 +594,9 @@ class KVCacheTracer:
 
         self.nvml = NVMLSampler(device_idx)
 
-        # Select layer classifier
-        self._classifiers = {
-            "gemma4": classify_gemma4_layer,
-            "glm51": classify_glm_layer,
-            "deepseek": classify_deepseek_layer,
-            "gptoss": classify_gptoss_layer,
-            "nemotron": classify_nemotron_layer,
-            "nemotron_h": classify_nemotron_layer,  # Nemotron-H uses same classifier
-            "mha": classify_mha_layer,
-            "lfm25": classify_lfm25_layer,
-            "qwen3": classify_qwen3_layer,
-            "qwen36": classify_qwen36_layer,
-            "llama": classify_llama_layer,
-            "llama4": classify_llama_layer,  # Llama 4 uses same attention structure as Llama 3
-            "deepseek_v4": classify_deepseek_v4_layer,
-        }
+        # Select layer classifier from the module-level registry (single source
+        # of truth — see LAYER_CLASSIFIERS above).
+        self._classifiers = dict(LAYER_CLASSIFIERS)
         self._classify = self._classifiers[model_type]
 
     # ── Hook Registration ─────────────────────────────────────────────────────
