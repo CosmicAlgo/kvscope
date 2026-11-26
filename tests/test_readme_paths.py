@@ -2,7 +2,7 @@
 
 Checks two places:
   * inline `code` spans outside fenced code blocks that look like paths
-    (contain "/" or end in a known file extension); globs must match something;
+    starting with a top-level folder of the repo; globs must match something;
   * the "Project structure" tree, rebuilt into full paths from its indentation.
 """
 
@@ -13,7 +13,6 @@ import re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 README = os.path.join(ROOT, "README.md")
 
-EXTENSIONS = (".py", ".sh", ".md", ".yaml", ".yml", ".json", ".toml", ".txt")
 FENCE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
 INLINE = re.compile(r"`([^`\s]+)`")
 TREE_ITEM = re.compile(r"^(?P<indent>(?:│   |    )*)[├└]── (?P<name>[^#]+?)\s*(?:#.*)?$")
@@ -25,16 +24,18 @@ def _read():
 
 
 def _inline_paths(text):
-    """Code spans that name a repo path: a file with a known extension, or a
-    "/"-path whose first part is a top-level entry of the repo. That rule skips
-    HuggingFace ids such as ``EleutherAI/pythia-1.4b-deduped``."""
+    """Code spans that name a repo path: a "/"-path whose first part is a
+    top-level entry of the repo.
+
+    Skipped on purpose: bare filenames (``config.json`` usually names a file
+    elsewhere) and HuggingFace ids such as ``EleutherAI/pythia-1.4b-deduped``."""
     top_level = set(os.listdir(ROOT))
     prose = FENCE.sub("", text)
     for token in INLINE.findall(prose):
         if token.startswith(("http://", "https://")):
             continue
         token = token.rstrip("/")
-        if token.endswith(EXTENSIONS) or ("/" in token and token.split("/")[0] in top_level):
+        if "/" in token and token.split("/")[0] in top_level:
             yield token
 
 

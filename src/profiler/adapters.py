@@ -89,11 +89,13 @@ _ADAPTERS_LIST = [
     ),
     ArchitectureAdapter(
         model_type="gemma4",
-        display_name="Gemma 4",
+        display_name="Gemma 4 31B",
         kv_strategy=GQA_LOCAL_GLOBAL,
-        hf_models=("google/gemma-4-9b-it",),
+        hf_models=("google/gemma-4-31B-it",),
         supports_long_context=True,
-        notes="GQA + shared KV + local/global interleave; K==V in global layers.",
+        notes=("50 sliding-window layers (16 KV heads x 256) + 10 full layers "
+               "(4 KV heads x 512, attention_k_eq_v). Checkpoint identified from "
+               "layer structure and weight memory; not recorded in the runs."),
     ),
     ArchitectureAdapter(
         model_type="glm51",
@@ -129,9 +131,12 @@ _ADAPTERS_LIST = [
     ),
     ArchitectureAdapter(
         model_type="nemotron",
-        display_name="Nemotron-H (SSM + GQA)",
+        display_name="Nemotron-H 8B (SSM + GQA)",
         kv_strategy=SSM_GQA,
-        notes="Mamba SSM majority + sparse GQA attention; SSM blocks carry no KV cache.",
+        hf_models=("nvidia/Nemotron-H-8B-Base-8K", "nvidia/Nemotron-H-8B-Reasoning-128K"),
+        notes=("52 layers: 24 Mamba-2, 24 MLP, 4 attention (8 KV heads x 128). "
+               "Size inferred from ~17.5 GB of bf16 weights; both 8B variants share "
+               "this layout. SSM blocks carry no KV cache."),
     ),
     ArchitectureAdapter(
         model_type="nemotron_h",
@@ -154,9 +159,12 @@ _ADAPTERS_LIST = [
     ),
     ArchitectureAdapter(
         model_type="qwen36",
-        display_name="Qwen3.6 (DeltaNet + GQA)",
+        display_name="Qwen3.6-35B-A3B (DeltaNet + GQA)",
         kv_strategy=DELTANET_GQA,
-        notes="48 Gated DeltaNet + 16 Gated Attention layers; DeltaNet carries no KV cache.",
+        hf_models=("Qwen/Qwen3.6-35B-A3B",),
+        notes=("40 layers: 30 Gated DeltaNet (linear attention, no KV cache) + 10 "
+               "full-attention layers with 2 KV heads x 256. Checkpoint identified "
+               "from layer structure and weight memory; not recorded in the runs."),
     ),
     ArchitectureAdapter(
         model_type="llama",

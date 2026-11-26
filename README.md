@@ -31,15 +31,20 @@ flowchart LR
 
 ### Models with results
 
-| Model | KV cache design |
-|---|---|
-| Pythia-1.4B | Pure MHA (num_kv_heads == num_attention_heads). The baseline. |
-| Gemma 4 | GQA with interleaved local (sliding-window) and global layers |
-| GLM-4.7-Flash | MoE with DeepSeek Sparse Attention (V1 only) |
-| gpt-oss-120B | GQA, alternating sliding-window and full-attention layers, MoE FFN |
-| Qwen 3.6 | Gated DeltaNet layers + GQA attention layers (V2 only) |
-| Nemotron-H | Mamba SSM + attention; profiled with `use_cache=False`, memory only (V2) |
-| Llama-3.1-70B + Llama-3.2-1B | Speculative decoding, memory only (V2) |
+| Model | Checkpoint ¹ | KV cache design |
+|---|---|---|
+| Pythia-1.4B | `EleutherAI/pythia-1.4b-deduped` (recorded) | Pure MHA (num_kv_heads == num_attention_heads). The baseline. |
+| Gemma 4 | `google/gemma-4-31B` | 50 sliding-window layers (16 KV heads × 256) + 10 global layers (4 KV heads × 512) |
+| GLM-4.7-Flash | `zai-org/GLM-4.7-Flash` | MoE with MLA attention (V1 only) |
+| gpt-oss-120B | `openai/gpt-oss-120b` | 18 sliding-window (128 tokens) + 18 full-attention layers, MoE FFN |
+| Qwen 3.6 | `Qwen/Qwen3.6-35B-A3B` | 30 Gated DeltaNet layers (no KV cache) + 10 full-attention layers (V2 only) |
+| Nemotron-H | `nvidia/Nemotron-H-8B-*` | 24 Mamba-2 + 4 attention layers; profiled with `use_cache=False`, memory only (V2) |
+| Llama-3.1-70B + Llama-3.2-1B | not recorded | Speculative decoding, memory only (V2) |
+
+¹ Except for Pythia, the runs recorded only a local path. Each checkpoint was
+identified by matching the measured layer count, KV heads per layer and bf16
+weight memory to the official `config.json`. Gemma 4 instruct vs base, and
+which Nemotron-H 8B variant, cannot be told apart this way.
 
 ---
 
@@ -135,12 +140,23 @@ unknown. It is excluded from every number in this README.
 | Model | KB/tok/layer | Layer CV | Peak overhead (MB) | Tok/s | WikiText-103 PPL | Max leak score |
 |---|---:|---:|---:|---:|---:|---:|
 | Pythia-1.4B | 8.00 | 0.000 | 98 | 87.1 | 12.43 | 0.335 |
-| Gemma 4 | 14.67 | 0.203 | 8610 | 5055.4 | 827.71 | 0.212 |
+| Gemma 4 | 14.67 | 0.203 | 8610 | 5055.4 | 827.71 ² | 0.212 |
 | GLM-4.7-Flash | - | - | 417 | 15.1 | 15.29 | 0.329 |
-| gpt-oss-120B | 2.00 ¹ | 0.935 | 57 | 14.9 | 317.66 | 0.241 |
+| gpt-oss-120B | 2.00 ¹ | 0.935 | 57 | 14.9 | 317.66 ² | 0.241 |
 
 ¹ Full-attention layers only (mean 8086.4 KB per layer at a mean peak of 4043
 tokens). Sliding-window layers hold about 254 KB each.
+
+² **Suspect; excluded from any summary.** These are far higher than expected
+for models of this size. Possible causes, not yet checked: scoring an
+instruction-tuned checkpoint on raw text without its chat template, or the
+quantisation used for the perplexity run.
+
+GLM-4.7-Flash uses MLA, but Hugging Face transformers cached the *expanded*
+K and V: 47 layers of 82.0 MB each, consistent with 20 heads × (256 + 256)
+values × 2 bytes = 20 KB per token per layer. Storing only the MLA latent
+would take (512 + 64) × 2 bytes = 1.125 KB. How much memory MLA saves depends
+on the inference engine.
 
 ### H200 V2 (2026-05-23)
 *NVIDIA H200, 143,771 MiB. 20 prompts (15 diverse + 5 stress tests). Source:
@@ -166,6 +182,17 @@ should approach 50% at long context (derived, not measured).
 
 Nemotron-H and speculative decoding have NVML memory readings only; no
 per-layer KV was captured.
+
+**Nemotron-H memory is suspect.** Its recorded overhead (about 133 GB) is not
+KV cache. On every prompt the peak reaches the GPU's capacity (150,475 of
+150,755 MB on prompt 0) and then falls back to the baseline after generation.
+That reading reflects transient memory during generation with
+`use_cache=False`; the cause has not been isolated.
+
+The tracer's layer labels for Gemma 4 (54 "local", 6 "global") disagree with
+the captured shapes (50 layers with 16 KV heads, 10 with 4) and with the
+model config (50 sliding, 10 full). The per-layer byte counts above come from
+the captured tensors and are not affected.
 
 `scripts/audit_paper.py` recomputes these numbers from the raw JSON and checks
 them against the values quoted in the V2 report.

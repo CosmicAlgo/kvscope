@@ -1,40 +1,26 @@
 # =============================================================================
 # KVScope Experiment Configs — Per-Model YAML Configurations
 # =============================================================================
-# These configs are referenced by run_profiling.sh and individual runners.
-# Adjust model paths and quantization based on your GPU hardware.
+# Reference only: no script reads this file (run_profiling.sh loads models
+# from $MODELS_DIR). Adjust model paths and quantization for your GPU.
 
 # ── Gemma 4 ─────────────────────────────────────────────────────────
+# The H100 V1 and H200 V2 runs used google/gemma-4-31B (instruct or base not
+# recorded). Identified from the result files: 60 layers (50 sliding with
+# 16 KV heads x 256, 10 full with 4 KV heads x 512) and ~63.7 GB of bf16
+# weights, which match the official gemma-4-31B config.json.
 gemma4:
-  name: "Gemma 4"
-  architecture: "GQA + Shared KV + Local/Global interleaving"
+  name: "Gemma 4 31B"
+  architecture: "GQA + local/global interleaving"
   kv_paradigm: "GQA"
-  
+
   variants:
-    # V100 (16GB) / T4 (16GB)
-    v100:
-      model_path: "google/gemma-4-2b-it"
-      quantization: "4bit"
-      max_tokens: 300
-      batch_size: 1
-      expected_kv_per_token_kb: 0.5
-      notes: "2B model in INT4 — fits comfortably in 16GB"
-
-    # L4 (24GB)
-    l4:
-      model_path: "google/gemma-4-9b-it"
-      quantization: "8bit"
-      max_tokens: 300
-      batch_size: 1
-      expected_kv_per_token_kb: 2.0
-
-    # A100/H100 (40-80GB)
+    # H100 / H200 (80GB+): bf16 weights fit without quantization.
     h100:
-      model_path: "google/gemma-4-9b-it"
+      model_path: "google/gemma-4-31B-it"
       quantization: "none"
-      max_tokens: 512
+      max_tokens: 2048
       batch_size: 1
-      expected_kv_per_token_kb: 4.0
 
   profiling:
     capture_every_n_steps: 5
