@@ -6,7 +6,7 @@
 # Supports checkpoint/resume for GCP Spot VM preemption survival.
 #
 # Usage:
-#   bash experiments/run_profiling.sh [all|gemma4|glm47flash|deepseek|mitigations]
+#   bash experiments/run_profiling.sh [all|gemma4|glm47flash|deepseek|...]
 #
 # Environment:
 #   MODELS_DIR    — path to downloaded model weights (default: ~/models)
@@ -644,50 +644,6 @@ run_minimax_m3() {
   checkpoint_done "$tag"
 }
 
-run_mitigations() {
-  local tag="mitigations_benchmark"
-  if is_done "$tag"; then
-    echo "[SKIP] $tag already complete"
-    return
-  fi
-
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo " EXPERIMENT: KV Cache Mitigations Benchmark"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-  python3 -c "
-import sys, json, torch
-sys.path.insert(0, '.')
-from src.mitigations.mitigations import benchmark_all_mitigations
-
-# Generate synthetic K/V for benchmarking
-B, H, S, D = 1, 32, 512, 128
-k = torch.randn(B, H, S, D, device='cuda', dtype=torch.float16)
-v = torch.randn(B, H, S, D, device='cuda', dtype=torch.float16)
-attn = torch.softmax(torch.randn(B, H, S, S, device='cuda'), dim=-1)
-
-results = benchmark_all_mitigations(k, v, attn)
-
-output = []
-for r in results:
-    output.append({
-        'strategy': r.strategy,
-        'memory_reduction_pct': r.memory_reduction_pct,
-        'memory_saved_mb': r.memory_saved_mb,
-        'throughput_delta_pct': r.throughput_delta_pct,
-        'perplexity_delta': r.perplexity_delta,
-        'config': r.config,
-    })
-
-from src.profiler.json_utils import dump_json
-dump_json(output, '$RESULTS_DIR/mitigations_benchmark.json')
-print('[Mitigations] Benchmark saved')
-"
-
-  checkpoint_done "$tag"
-}
-
 run_comparative() {
   local tag="comparative_analysis"
   if is_done "$tag"; then
@@ -1067,8 +1023,8 @@ run_perplexity() {
   echo "[*] Evaluating perplexity for: ${model_args[*]}"
 
   # PPL_QUANT_TIERS controls which quantization variants we run. Default
-  # 'none 8bit' produces the paired baseline-vs-INT8 comparison the paper
-  # needs for the mitigation table. Override to 'none 8bit 4bit' for a
+  # 'none 8bit' produces the paired baseline-vs-INT8 comparison reported in
+  # results/h100_v1/perplexity.json. Override to 'none 8bit 4bit' for a
   # three-tier sweep, or 'none' to just get the baseline.
   read -ra _ppl_quant <<< "${PPL_QUANT_TIERS:-none 8bit}"
 
@@ -1104,7 +1060,6 @@ case "$PHASE" in
   llama4)        run_llama4 ;;
   mha_baseline)  run_mha_baseline ;;
   mha)           run_mha_baseline ;;     # alias
-  mitigations)   run_mitigations ;;
   comparative)   run_comparative ;;
   perplexity)    run_perplexity ;;
   ppl)           run_perplexity ;;       # alias
@@ -1137,7 +1092,11 @@ case "$PHASE" in
     rm -f "$CHECKPOINT_FILE"
     echo "[*] Checkpoint cleared. All experiments will re-run."
     ;;
-  *)
+  help|-h|--help|*)
+    if [[ "$PHASE" != "help" && "$PHASE" != "-h" && "$PHASE" != "--help" ]]; then
+      echo "[!] Unknown phase: '$PHASE'" >&2
+      USAGE_EXIT=2
+    fi
     echo "Usage: bash experiments/run_profiling.sh [phase]"
     echo ""
     echo "Phases:"
@@ -1154,9 +1113,9 @@ case "$PHASE" in
     echo "  llama          Profile Llama-3.1-70B (dense GQA) — only if weights present"
     echo "  llama4         Profile Llama-4-Scout (MoE) — only if weights present"
     echo "  mha_baseline   Profile Pythia-1.4B as the pure-MHA anchor"
-    echo "  mitigations    Run quantization / H2O / prefix-sharing benchmark"
     echo "  comparative    Build the cross-architecture comparison JSON"
     echo "  perplexity     WikiText-103 perplexity for every available model"
     echo "  reset          Clear the checkpoint file (forces all phases to rerun)"
+    exit "${USAGE_EXIT:-0}"
     ;;
 esac
