@@ -533,6 +533,7 @@ def classify_minimax_m3_layer(name: str, module: nn.Module) -> Optional[str]:
 LAYER_CLASSIFIERS = {
     "gemma4": classify_gemma4_layer,
     "glm51": classify_glm_layer,
+    "glm47flash": classify_glm_layer,        # alias: name used by run_profiling.sh
     "deepseek": classify_deepseek_layer,
     "gptoss": classify_gptoss_layer,
     "nemotron": classify_nemotron_layer,
@@ -557,7 +558,8 @@ class KVCacheTracer:
 
     Supports three model families with their distinct KV cache mechanisms:
       - "gemma4"    : GQA + Shared KV + Local/Global interleaving
-      - "glm51"     : MoE + DeepSeek Sparse Attention (GLM-4.7 as proxy)
+      - "glm51"     : GLM-4.7-Flash (MoE + MLA), a stand-in for GLM 5.1
+      - "glm47flash": alias of "glm51"
       - "deepseek"  : MLA (Multi-Head Latent Attention) compressed KV
     """
 

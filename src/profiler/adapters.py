@@ -99,10 +99,21 @@ _ADAPTERS_LIST = [
     ),
     ArchitectureAdapter(
         model_type="glm51",
-        display_name="GLM-4.7-Flash (DSA proxy)",
-        kv_strategy=GQA,
+        display_name="GLM-4.7-Flash (MoE + MLA)",
+        kv_strategy=MLA,
+        kv_compressed=True,
         hf_models=("zai-org/GLM-4.7-Flash",),
-        notes="MoE + DeepSeek Sparse Attention; per-token KV non-deterministic via routing.",
+        notes=("MLA attention (kv_lora_rank 512, qk_rope_head_dim 64) with MoE FFN. "
+               "Originally a stand-in for GLM 5.1. HF transformers cached expanded "
+               "K/V (20 heads x (256 + 256)), not the latent."),
+    ),
+    ArchitectureAdapter(
+        model_type="glm47flash",
+        display_name="GLM-4.7-Flash (MoE + MLA)",
+        kv_strategy=MLA,
+        kv_compressed=True,
+        hf_models=("zai-org/GLM-4.7-Flash",),
+        notes="Alias of 'glm51' (same classifier); the phase name in run_profiling.sh.",
     ),
     ArchitectureAdapter(
         model_type="gptoss",

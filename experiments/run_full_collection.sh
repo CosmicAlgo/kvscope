@@ -14,7 +14,8 @@
 #
 # Environment variables:
 #   MAX_TOKENS       — generation length per prompt (default: 4096)
-#   MODELS           — space-separated model list (default: "gemma4 glm51 gptoss")
+#   MODELS           — space-separated model list (default: the models with
+#                      results in results/; see MODELS= below)
 #   PROMPTS_FILE     — path to JSON array of prompts
 #                      (default: experiments/configs/prompts_advanced.json)
 #   RESULTS_DIR      — base results directory (default: ./results)
@@ -43,7 +44,7 @@ CAPTURE_EVERY="${CAPTURE_EVERY:-8}"
 # Default model set now includes the pure-MHA baseline (Pythia-1.4B) and Nemotron.
 # The baseline gets capped at 1024 tokens automatically by run_profiling.sh
 # because Pythia max_position_embeddings=2048.
-MODELS="${MODELS:-mha_baseline gemma4 glm51 gptoss nemotron lfm25 deepseek_v4}"
+MODELS="${MODELS:-mha_baseline gemma4 glm47flash gptoss qwen36 nemotron}"
 PROMPTS_FILE="${PROMPTS_FILE:-experiments/configs/prompts_advanced.json}"
 # Whether to also run WikiText-103 perplexity at the end (1=yes). This adds
 # ~30 min on top of profiling but produces the publication-grade quality
