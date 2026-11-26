@@ -1,0 +1,93 @@
+{
+  "_about": "KV-cache values measured by the KVScope Python tracer (Hugging Face transformers, bf16, batch 1). Every entry names the result file and JSON path it came from; tests/test_measurements_provenance.py re-reads them. MB/KB in the result files are 1024-based.",
+  "measurements": [
+    {
+      "models": ["EleutherAI/pythia-1.4b-deduped"],
+      "checkpoint": "recorded",
+      "quantity": "KiB per token per layer",
+      "value": 8.0,
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "date": "2026-04-27",
+      "engine": "transformers 5.6.2",
+      "source": "results/h100_v1/comparative_analysis.json",
+      "path": "per_model.mha_baseline.avg_density_kb_per_tok_per_layer"
+    },
+    {
+      "models": ["EleutherAI/pythia-1.4b-deduped"],
+      "checkpoint": "recorded",
+      "quantity": "KiB per token per layer",
+      "value": 8.0,
+      "gpu": "NVIDIA H200",
+      "date": "2026-05-23",
+      "engine": "transformers 5.9.0",
+      "source": "results/h200_v2/comparative_analysis.json",
+      "path": "per_model.mha_baseline.avg_density_kb_per_tok_per_layer"
+    },
+    {
+      "models": ["google/gemma-4-31B", "google/gemma-4-31B-it"],
+      "checkpoint": "identified from layer structure and weight memory",
+      "quantity": "KiB per token per layer (sliding layers not trimmed to the window)",
+      "value": 14.6667,
+      "gpu": "NVIDIA H200",
+      "date": "2026-05-23",
+      "engine": "transformers 5.9.0",
+      "source": "results/h200_v2/comparative_analysis.json",
+      "path": "per_model.gemma4.avg_density_kb_per_tok_per_layer"
+    },
+    {
+      "models": ["openai/gpt-oss-120b"],
+      "checkpoint": "identified from layer structure and weight memory",
+      "quantity": "KiB per token, full-attention layers only",
+      "value": 2.0,
+      "gpu": "NVIDIA H200",
+      "date": "2026-05-23",
+      "engine": "transformers 5.9.0",
+      "source": "results/h200_v2/comparative_analysis.json",
+      "path": "per_model.gptoss.avg_density_kb_per_tok_per_layer"
+    },
+    {
+      "models": ["openai/gpt-oss-120b"],
+      "checkpoint": "identified from layer structure and weight memory",
+      "quantity": "MiB in one full-attention layer, prompt 0 (about 2156 tokens)",
+      "value": 4.211,
+      "gpu": "NVIDIA H200",
+      "date": "2026-05-23",
+      "engine": "transformers 5.9.0",
+      "source": "results/h200_v2/gptoss_profile.json",
+      "path": "per_prompt.0.tracer.kv_cache.per_layer_mb.1"
+    },
+    {
+      "models": ["openai/gpt-oss-120b"],
+      "checkpoint": "identified from layer structure and weight memory",
+      "quantity": "MiB in one sliding-window layer, prompt 0 (127 tokens held)",
+      "value": 0.248,
+      "gpu": "NVIDIA H200",
+      "date": "2026-05-23",
+      "engine": "transformers 5.9.0",
+      "source": "results/h200_v2/gptoss_profile.json",
+      "path": "per_prompt.0.tracer.kv_cache.per_layer_mb.0"
+    },
+    {
+      "models": ["Qwen/Qwen3.6-35B-A3B"],
+      "checkpoint": "identified from layer structure and weight memory",
+      "quantity": "MiB in one full-attention layer, prompt 0 (about 2172 tokens)",
+      "value": 4.242,
+      "gpu": "NVIDIA H200",
+      "date": "2026-05-23",
+      "engine": "transformers 5.9.0",
+      "source": "results/h200_v2/qwen36_profile.json",
+      "path": "per_prompt.0.tracer.kv_cache.per_layer_mb.3"
+    },
+    {
+      "models": ["zai-org/GLM-4.7-Flash"],
+      "checkpoint": "identified from layer structure and weight memory",
+      "quantity": "MiB in one layer, prompt 0 (expanded K/V; prompt length not recorded)",
+      "value": 82.012,
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "date": "2026-04-27",
+      "engine": "transformers 5.6.2",
+      "source": "results/h100_v1/glm47flash_profile.json",
+      "path": "per_prompt.0.tracer.kv_cache.per_layer_mb.0"
+    }
+  ]
+}

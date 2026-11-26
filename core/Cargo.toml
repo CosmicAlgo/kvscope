@@ -11,5 +11,17 @@ publish = false
 name = "kvscope_core"
 path = "src/lib.rs"
 
+[[bin]]
+name = "kvscope"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+# The command-line program. Off for library-only builds such as WebAssembly.
+cli = ["dep:clap"]
+
 [dependencies]
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+clap = { version = "4", features = ["derive"], optional = true }

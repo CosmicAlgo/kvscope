@@ -64,3 +64,6 @@ jobs:
 
       - name: Tests
         run: cargo test --locked
+
+      - name: Library builds without the CLI (for WebAssembly later)
+        run: cargo build --locked --lib --no-default-features
