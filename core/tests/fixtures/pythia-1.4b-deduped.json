@@ -1,0 +1,12 @@
+{
+  "_source": "KV-relevant fields of https://huggingface.co/EleutherAI/pythia-1.4b-deduped/blob/main/config.json, retrieved 2026-11-26",
+  "architectures": [
+    "GPTNeoXForCausalLM"
+  ],
+  "hidden_size": 2048,
+  "max_position_embeddings": 2048,
+  "model_type": "gpt_neox",
+  "num_attention_heads": 16,
+  "num_hidden_layers": 24,
+  "torch_dtype": "float16"
+}

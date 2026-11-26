@@ -45,3 +45,5 @@ results/**/.checkpoint
 
 # Paper source: kept private and untracked. Archived versions are on Zenodo (see README).
 paper/
+# Rust build output
+core/target/

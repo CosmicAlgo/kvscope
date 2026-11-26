@@ -1,0 +1,15 @@
+[package]
+name = "kvscope-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "KV-cache capacity planner for LLM inference: reads a Hugging Face config.json"
+repository = "https://github.com/CosmicAlgo/kvscope"
+publish = false
+
+[lib]
+name = "kvscope_core"
+path = "src/lib.rs"
+
+[dependencies]
+serde_json = "1"
